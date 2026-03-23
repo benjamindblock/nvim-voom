@@ -1,7 +1,11 @@
-__pycache__
-*.pyc
-*.bat
-*.vbs
-*.lnk
-*.sh
+# Legacy Python/Vimscript engine
+legacy/
 
+# Compiled Lua bytecode
+*.luac
+
+# mise local overrides
+.mise.local.toml
+
+# Intermediate/comparison artifacts
+tmp/
