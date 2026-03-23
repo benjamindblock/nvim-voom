@@ -111,6 +111,43 @@ function M.navigate_to_body(tree_buf, tree_lnum)
   end
 end
 
+-- Scroll the body window to the heading corresponding to `tree_lnum`, keeping
+-- focus in the tree window.
+--
+-- This is the "stay in tree" counterpart to navigate_to_body().  It is called
+-- by the CursorMoved autocommand to implement live cursor-follow as the user
+-- moves through the tree with j/k or any other motion.
+function M.follow_cursor(tree_buf, tree_lnum)
+  local body_buf = state.get_body(tree_buf)
+  if not body_buf then return end
+
+  -- Same bnode lookup as navigate_to_body.
+  local body_lnum
+  if tree_lnum == 1 then
+    body_lnum = 1
+  else
+    local outline = state.get_outline(body_buf)
+    if not outline then return end
+    body_lnum = outline.bnodes[tree_lnum - 1]
+    if not body_lnum then return end
+  end
+
+  state.set_snLn(body_buf, tree_lnum)
+
+  -- Scroll the body window to the heading WITHOUT moving focus away from the
+  -- tree.  We set the body window cursor directly via the API so there is no
+  -- window-switch overhead and no flicker.
+  local body_win = find_win_for_buf(body_buf)
+  local tree_win = find_win_for_buf(tree_buf)
+  if body_win then
+    vim.api.nvim_win_set_cursor(body_win, { body_lnum, 0 })
+  end
+  -- Restore focus to the tree window in case the API call moved it.
+  if tree_win and vim.api.nvim_get_current_win() ~= tree_win then
+    vim.api.nvim_set_current_win(tree_win)
+  end
+end
+
 -- ==============================================================================
 -- Keymap setup
 -- ==============================================================================
@@ -128,15 +165,17 @@ function M.set_keymaps(tree_buf, body_buf)
     end,
   })
 
-  -- <Tab>: move focus back to body without navigating.
+  -- <Tab>: move focus to body, placing its cursor at the currently-selected
+  -- heading.  Unlike <CR>, this does not re-trigger a navigation call of its
+  -- own — follow_cursor has already kept the body cursor in sync, so all we
+  -- need to do is switch window focus via navigate_to_body (which reads the
+  -- current tree cursor line and does the bnode lookup).
   vim.api.nvim_buf_set_keymap(tree_buf, "n", "<Tab>", "", {
     noremap  = true,
     silent   = true,
     callback = function()
-      local body_win = find_win_for_buf(body_buf)
-      if body_win then
-        vim.api.nvim_set_current_win(body_win)
-      end
+      local lnum = vim.api.nvim_win_get_cursor(0)[1]
+      M.navigate_to_body(tree_buf, lnum)
     end,
   })
 
@@ -167,6 +206,19 @@ local function setup_autocommands(body_buf, tree_buf)
     buffer = body_buf,
     callback = function()
       M.update(body_buf)
+    end,
+  })
+
+  -- Live cursor-follow: whenever the cursor moves in the tree buffer, scroll
+  -- the body window to the corresponding heading without moving focus.
+  -- Using CursorMoved rather than mapping individual keys (j, k, etc.) means
+  -- all navigation methods — motions, searches, mouse — trigger the follow.
+  vim.api.nvim_create_autocmd("CursorMoved", {
+    group  = aug,
+    buffer = tree_buf,
+    callback = function()
+      local lnum = vim.api.nvim_win_get_cursor(0)[1]
+      M.follow_cursor(tree_buf, lnum)
     end,
   })
 

@@ -412,4 +412,176 @@ T["tree.update"]["rebuilds tree lines after body content changes"] = function()
   MiniTest.expect.equality(after[3], "  . |Sub Heading")
 end
 
+-- ==============================================================================
+-- tree.lua: follow_cursor
+-- ==============================================================================
+
+T["tree.follow_cursor"] = MiniTest.new_set({
+  hooks = {
+    pre_case = function()
+      T["tree.follow_cursor"]._body_buf = nil
+      T["tree.follow_cursor"]._tree_buf = nil
+    end,
+    post_case = function()
+      local state = require("voom.state")
+      local body  = T["tree.follow_cursor"]._body_buf
+      if body and state.is_body(body) then
+        require("voom.tree").close(body)
+      end
+      del_buf(T["tree.follow_cursor"]._body_buf)
+    end,
+  },
+})
+
+T["tree.follow_cursor"]["focus stays in tree after scrolling body"] = function()
+  local tree_mod = require("voom.tree")
+  local lines    = load_fixture("sample.md")
+  local body     = make_scratch_buf(lines, "sample.md")
+  T["tree.follow_cursor"]._body_buf = body
+
+  vim.api.nvim_set_current_buf(body)
+  local tree_buf = tree_mod.create(body, "markdown")
+  T["tree.follow_cursor"]._tree_buf = tree_buf
+
+  -- Move focus to the tree window before calling follow_cursor.
+  local tree_win
+  for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+    if vim.api.nvim_win_get_buf(win) == tree_buf then
+      tree_win = win
+      break
+    end
+  end
+  vim.api.nvim_set_current_win(tree_win)
+
+  tree_mod.follow_cursor(tree_buf, 3)
+
+  -- Focus must still be in the tree window.
+  MiniTest.expect.equality(vim.api.nvim_get_current_win(), tree_win)
+end
+
+T["tree.follow_cursor"]["root line scrolls body to line 1"] = function()
+  local tree_mod = require("voom.tree")
+  local lines    = load_fixture("sample.md")
+  local body     = make_scratch_buf(lines, "sample.md")
+  T["tree.follow_cursor"]._body_buf = body
+
+  vim.api.nvim_set_current_buf(body)
+  local tree_buf = tree_mod.create(body, "markdown")
+  T["tree.follow_cursor"]._tree_buf = tree_buf
+
+  local body_win
+  for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+    if vim.api.nvim_win_get_buf(win) == body then
+      body_win = win
+      break
+    end
+  end
+
+  tree_mod.follow_cursor(tree_buf, 1)
+
+  local cursor = vim.api.nvim_win_get_cursor(body_win)
+  MiniTest.expect.equality(cursor[1], 1)
+end
+
+T["tree.follow_cursor"]["heading line scrolls body to correct bnode"] = function()
+  local tree_mod = require("voom.tree")
+  local state    = require("voom.state")
+  local lines    = load_fixture("sample.md")
+  local body     = make_scratch_buf(lines, "sample.md")
+  T["tree.follow_cursor"]._body_buf = body
+
+  vim.api.nvim_set_current_buf(body)
+  local tree_buf = tree_mod.create(body, "markdown")
+  T["tree.follow_cursor"]._tree_buf = tree_buf
+
+  -- Tree line 3 → second heading ("## Installation" at body line 6).
+  local expected = state.get_outline(body).bnodes[2]
+  MiniTest.expect.equality(expected, 6)
+
+  local body_win
+  for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+    if vim.api.nvim_win_get_buf(win) == body then
+      body_win = win
+      break
+    end
+  end
+
+  tree_mod.follow_cursor(tree_buf, 3)
+
+  local cursor = vim.api.nvim_win_get_cursor(body_win)
+  MiniTest.expect.equality(cursor[1], expected)
+end
+
+T["tree.follow_cursor"]["updates snLn in state"] = function()
+  local tree_mod = require("voom.tree")
+  local state    = require("voom.state")
+  local lines    = load_fixture("sample.md")
+  local body     = make_scratch_buf(lines, "sample.md")
+  T["tree.follow_cursor"]._body_buf = body
+
+  vim.api.nvim_set_current_buf(body)
+  local tree_buf = tree_mod.create(body, "markdown")
+  T["tree.follow_cursor"]._tree_buf = tree_buf
+
+  tree_mod.follow_cursor(tree_buf, 4)
+
+  MiniTest.expect.equality(state.get_snLn(body), 4)
+end
+
+-- ==============================================================================
+-- <Tab> keymap: navigate to heading AND switch focus
+-- ==============================================================================
+
+T["tab keymap"] = MiniTest.new_set({
+  hooks = {
+    pre_case = function()
+      T["tab keymap"]._body_buf = nil
+      T["tab keymap"]._tree_buf = nil
+    end,
+    post_case = function()
+      local state = require("voom.state")
+      local body  = T["tab keymap"]._body_buf
+      if body and state.is_body(body) then
+        require("voom.tree").close(body)
+      end
+      del_buf(T["tab keymap"]._body_buf)
+    end,
+  },
+})
+
+T["tab keymap"]["moves focus to body at the selected heading"] = function()
+  local tree_mod = require("voom.tree")
+  local state    = require("voom.state")
+  local lines    = load_fixture("sample.md")
+  local body     = make_scratch_buf(lines, "sample.md")
+  T["tab keymap"]._body_buf = body
+
+  vim.api.nvim_set_current_buf(body)
+  local tree_buf = tree_mod.create(body, "markdown")
+  T["tab keymap"]._tree_buf = tree_buf
+
+  -- Focus the tree window and place cursor on tree line 3 (second heading).
+  local tree_win
+  local body_win
+  for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+    local wb = vim.api.nvim_win_get_buf(win)
+    if wb == tree_buf then tree_win = win end
+    if wb == body      then body_win = win end
+  end
+  vim.api.nvim_set_current_win(tree_win)
+  vim.api.nvim_win_set_cursor(tree_win, { 3, 0 })
+
+  -- Simulate <Tab> by calling navigate_to_body directly (same as the keymap
+  -- callback, which reads the current cursor line and calls navigate_to_body).
+  tree_mod.navigate_to_body(tree_buf, 3)
+
+  -- Focus should now be in the body window.
+  MiniTest.expect.equality(vim.api.nvim_get_current_win(), body_win)
+
+  -- Body cursor should be at bnodes[2] (second heading = "## Installation" = line 6).
+  local expected = state.get_outline(body).bnodes[2]
+  local cursor   = vim.api.nvim_win_get_cursor(body_win)
+  MiniTest.expect.equality(cursor[1], expected)
+end
+
 return T
