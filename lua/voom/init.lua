@@ -7,6 +7,54 @@
 local M = {}
 
 -- ==============================================================================
+-- Log buffer
+-- ==============================================================================
+
+-- Module-level handle for the VOoM log buffer (nil until first :Voomlog).
+-- We keep it at module level so that successive calls to log() and log_init()
+-- share the same buffer rather than creating new scratch buffers each time.
+local log_buf = nil
+
+-- Ensure the log buffer exists.  Returns its buffer number.
+local function ensure_log_buf()
+  if log_buf and vim.api.nvim_buf_is_valid(log_buf) then
+    return log_buf
+  end
+  -- Create a named scratch buffer that will not prompt for saving on exit.
+  log_buf = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_buf_set_name(log_buf, "*VOOM LOG*")
+  vim.api.nvim_buf_set_option(log_buf, "buftype",   "nofile")
+  vim.api.nvim_buf_set_option(log_buf, "buflisted", false)
+  return log_buf
+end
+
+-- Append `msg` as a new line to the VOoM log buffer, creating it if needed.
+function M.log(msg)
+  local buf = ensure_log_buf()
+  vim.api.nvim_buf_set_option(buf, "modifiable", true)
+  local line_count = vim.api.nvim_buf_line_count(buf)
+  vim.api.nvim_buf_set_lines(buf, line_count, line_count, false, { tostring(msg) })
+  vim.api.nvim_buf_set_option(buf, "modifiable", false)
+end
+
+-- Open (or focus) the VOoM log buffer in a horizontal split at the bottom.
+function M.log_init()
+  local buf = ensure_log_buf()
+
+  -- Check whether the log buffer is already visible; if so, just focus it.
+  for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+    if vim.api.nvim_win_get_buf(win) == buf then
+      vim.api.nvim_set_current_win(win)
+      return
+    end
+  end
+
+  -- Open a bottom horizontal split and switch it to the log buffer.
+  vim.cmd("botright split")
+  vim.api.nvim_win_set_buf(vim.api.nvim_get_current_win(), buf)
+end
+
+-- ==============================================================================
 -- Internal helpers
 -- ==============================================================================
 
@@ -20,6 +68,24 @@ local function detect_mode(args)
   local ft = vim.bo.filetype
   if ft == "md" then return "markdown" end
   return ft
+end
+
+-- Resolve the body buffer from the current context.
+-- If the current buffer is a body, returns it directly.
+-- If the current buffer is a tree, returns the associated body.
+-- Otherwise returns nil and emits an error.
+local function resolve_body_buf()
+  local state = require("voom.state")
+  local current = vim.api.nvim_get_current_buf()
+
+  if state.is_body(current) then
+    return current
+  elseif state.is_tree(current) then
+    return state.get_body(current)
+  else
+    vim.notify("VOoM: current buffer has no active VOoM tree", vim.log.levels.ERROR)
+    return nil
+  end
 end
 
 -- ==============================================================================
@@ -109,7 +175,103 @@ function M.help()
   vim.cmd("help voom")
 end
 
--- TODO: implement log buffer
-function M.log_init() end
+-- ==============================================================================
+-- VoomGrep
+-- ==============================================================================
+
+-- Search body headings for a Lua pattern; populate the quickfix list.
+--
+-- The search is over heading texts (not raw body lines), so "Overview" would
+-- match the heading "Project Overview" in the tree but not a body paragraph
+-- that happens to contain that word.
+--
+-- @param args  string  Lua pattern to match against heading texts
+function M.grep(args)
+  local state = require("voom.state")
+  local tree_mod = require("voom.tree")
+
+  local body_buf = resolve_body_buf()
+  if not body_buf then return end
+
+  local outline  = state.get_outline(body_buf)
+  if not outline then
+    vim.notify("VOoM: no outline data for this buffer", vim.log.levels.ERROR)
+    return
+  end
+
+  local tree_buf = state.get_tree(body_buf)
+  if not tree_buf or not vim.api.nvim_buf_is_valid(tree_buf) then
+    vim.notify("VOoM: tree buffer is not available", vim.log.levels.ERROR)
+    return
+  end
+
+  local bnodes = outline.bnodes
+  local entries = {}
+
+  -- Walk every heading (bnodes[i] → tree line i+1).  Read the tree line to
+  -- extract the display text, which is already stripped of markup syntax;
+  -- this is cleaner than parsing the raw body line again.
+  for i, bnode in ipairs(bnodes) do
+    local tree_lnum = i + 1
+    local raw = vim.api.nvim_buf_get_lines(tree_buf, tree_lnum - 1, tree_lnum, false)[1] or ""
+    -- heading_text_from_tree_line is module-private, replicate its logic here.
+    local text = raw:match("|(.*)$") or ""
+
+    if text:match(args) then
+      table.insert(entries, {
+        bufnr = body_buf,
+        lnum  = bnode,
+        text  = text,
+      })
+    end
+  end
+
+  vim.fn.setqflist(entries, "r")
+
+  if #entries == 0 then
+    vim.notify("VOoM grep: no headings matched '" .. args .. "'", vim.log.levels.WARN)
+  else
+    vim.cmd("copen")
+  end
+end
+
+-- ==============================================================================
+-- Voominfo
+-- ==============================================================================
+
+-- Display diagnostic information about the VOoM state for the current buffer.
+-- Useful for debugging and verifying that the outline is in sync with the body.
+function M.voominfo()
+  local state = require("voom.state")
+
+  local body_buf = resolve_body_buf()
+  if not body_buf then return end
+
+  local entry = state.bodies[body_buf]
+  if not entry then
+    vim.notify("VOoM: no state entry found", vim.log.levels.ERROR)
+    return
+  end
+
+  local tree_buf   = entry.tree
+  local snLn       = entry.snLn
+  local node_count = #entry.bnodes
+
+  -- Read the heading text for the currently selected node.
+  local headline = "(root)"
+  if snLn > 1 and vim.api.nvim_buf_is_valid(tree_buf) then
+    local raw = vim.api.nvim_buf_get_lines(tree_buf, snLn - 1, snLn, false)[1] or ""
+    headline = raw:match("|(.*)$") or "(unknown)"
+  end
+
+  local msg = string.format(
+    "VOoM info\n  mode:   %s\n  nodes:  %d\n  snLn:   %d\n  node:   %s",
+    tostring(entry.mode),
+    node_count,
+    snLn,
+    headline
+  )
+  vim.notify(msg, vim.log.levels.INFO)
+end
 
 return M

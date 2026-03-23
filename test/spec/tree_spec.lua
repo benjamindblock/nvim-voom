@@ -584,4 +584,341 @@ T["tab keymap"]["moves focus to body at the selected heading"] = function()
   MiniTest.expect.equality(cursor[1], expected)
 end
 
+-- ==============================================================================
+-- state.lua: changedtick tracking
+-- ==============================================================================
+
+T["state.changedtick"] = MiniTest.new_set()
+
+T["state.changedtick"]["get_changedtick returns stored tick"] = function()
+  local state = require("voom.state")
+  local buf = vim.api.nvim_create_buf(false, true)
+  local tick_before = vim.api.nvim_buf_get_changedtick(buf)
+
+  local outline = { bnodes = {}, levels = {}, tlines = {} }
+  state.register(buf, 300, "markdown", outline)
+
+  -- The tick stored at registration should equal the tick at register time.
+  MiniTest.expect.equality(state.get_changedtick(buf), tick_before)
+
+  state.unregister(buf)
+  vim.api.nvim_buf_delete(buf, { force = true })
+end
+
+T["state.changedtick"]["set_changedtick updates stored tick"] = function()
+  local state = require("voom.state")
+  local buf = vim.api.nvim_create_buf(false, true)
+  local outline = { bnodes = {}, levels = {}, tlines = {} }
+  state.register(buf, 301, "markdown", outline)
+
+  state.set_changedtick(buf, 9999)
+  MiniTest.expect.equality(state.get_changedtick(buf), 9999)
+
+  state.unregister(buf)
+  vim.api.nvim_buf_delete(buf, { force = true })
+end
+
+-- ==============================================================================
+-- tree.lua: outline traversal utilities
+-- ==============================================================================
+--
+-- These tests exercise the pure traversal functions directly, using plain
+-- levels arrays without needing a live Neovim window.
+--
+-- The fixture levels array below describes the following tree structure:
+--
+--   tree line 1  — root (no levels entry)
+--   tree line 2  — level 1  (levels[1] = 1)
+--   tree line 3  — level 2  (levels[2] = 2)
+--   tree line 4  — level 2  (levels[3] = 2)
+--   tree line 5  — level 1  (levels[4] = 1)
+--   tree line 6  — level 2  (levels[5] = 2)
+
+T["outline traversal"] = MiniTest.new_set()
+
+T["outline traversal"]["find_parent_lnum: level-1 node returns root (1)"] = function()
+  local tree = require("voom.tree")
+  local levels = { 1, 2, 2, 1, 2 }
+  -- Tree line 2 is a level-1 heading; its parent is the root (line 1).
+  MiniTest.expect.equality(tree.find_parent_lnum(levels, 2), 1)
+  -- Tree line 5 is also level 1.
+  MiniTest.expect.equality(tree.find_parent_lnum(levels, 5), 1)
+end
+
+T["outline traversal"]["find_parent_lnum: level-2 node returns nearest level-1 ancestor"] = function()
+  local tree = require("voom.tree")
+  local levels = { 1, 2, 2, 1, 2 }
+  -- Tree line 3 (level 2) → parent is tree line 2 (level 1).
+  MiniTest.expect.equality(tree.find_parent_lnum(levels, 3), 2)
+  -- Tree line 4 (level 2) → parent is still tree line 2.
+  MiniTest.expect.equality(tree.find_parent_lnum(levels, 4), 2)
+  -- Tree line 6 (level 2) → parent is tree line 5.
+  MiniTest.expect.equality(tree.find_parent_lnum(levels, 6), 5)
+end
+
+T["outline traversal"]["find_parent_lnum: root line returns 1"] = function()
+  local tree = require("voom.tree")
+  local levels = { 1, 2 }
+  MiniTest.expect.equality(tree.find_parent_lnum(levels, 1), 1)
+end
+
+T["outline traversal"]["find_first_child_lnum: node with child returns child lnum"] = function()
+  local tree = require("voom.tree")
+  local levels = { 1, 2, 2, 1, 2 }
+  -- Tree line 2 (level 1) has a child at tree line 3 (level 2).
+  MiniTest.expect.equality(tree.find_first_child_lnum(levels, 2), 3)
+  -- Root (tree line 1) has a child at tree line 2.
+  MiniTest.expect.equality(tree.find_first_child_lnum(levels, 1), 2)
+end
+
+T["outline traversal"]["find_first_child_lnum: leaf node returns nil"] = function()
+  local tree = require("voom.tree")
+  local levels = { 1, 2, 2, 1, 2 }
+  -- Tree line 3 (level 2) is followed by tree line 4 also at level 2 — same
+  -- level, not a child.
+  MiniTest.expect.equality(tree.find_first_child_lnum(levels, 3), nil)
+  -- Tree line 6 (level 2) is the last node — no child.
+  MiniTest.expect.equality(tree.find_first_child_lnum(levels, 6), nil)
+end
+
+T["outline traversal"]["find_prev_sibling_lnum: first sibling returns nil"] = function()
+  local tree = require("voom.tree")
+  local levels = { 1, 2, 2, 1, 2 }
+  -- Tree line 2 is the first level-1 sibling; no previous sibling.
+  MiniTest.expect.equality(tree.find_prev_sibling_lnum(levels, 2), nil)
+  -- Tree line 3 is the first level-2 child under tree line 2.
+  MiniTest.expect.equality(tree.find_prev_sibling_lnum(levels, 3), nil)
+end
+
+T["outline traversal"]["find_prev_sibling_lnum: middle sibling returns previous"] = function()
+  local tree = require("voom.tree")
+  local levels = { 1, 2, 2, 1, 2 }
+  -- Tree line 4 (level 2) — previous sibling is tree line 3.
+  MiniTest.expect.equality(tree.find_prev_sibling_lnum(levels, 4), 3)
+  -- Tree line 5 (level 1) — previous sibling is tree line 2.
+  MiniTest.expect.equality(tree.find_prev_sibling_lnum(levels, 5), 2)
+end
+
+T["outline traversal"]["find_next_sibling_lnum: last sibling returns nil"] = function()
+  local tree = require("voom.tree")
+  local levels = { 1, 2, 2, 1, 2 }
+  -- Tree line 5 is the last level-1 node.
+  MiniTest.expect.equality(tree.find_next_sibling_lnum(levels, 5), nil)
+  -- Tree line 6 is the last level-2 node under tree line 5.
+  MiniTest.expect.equality(tree.find_next_sibling_lnum(levels, 6), nil)
+end
+
+T["outline traversal"]["find_next_sibling_lnum: middle sibling returns next"] = function()
+  local tree = require("voom.tree")
+  local levels = { 1, 2, 2, 1, 2 }
+  -- Tree line 2 (level 1) → next sibling is tree line 5.
+  MiniTest.expect.equality(tree.find_next_sibling_lnum(levels, 2), 5)
+  -- Tree line 3 (level 2) → next sibling is tree line 4.
+  MiniTest.expect.equality(tree.find_next_sibling_lnum(levels, 3), 4)
+end
+
+T["outline traversal"]["find_first_sibling_lnum: already at first returns same"] = function()
+  local tree = require("voom.tree")
+  local levels = { 1, 2, 2, 1, 2 }
+  MiniTest.expect.equality(tree.find_first_sibling_lnum(levels, 2), 2)
+end
+
+T["outline traversal"]["find_last_sibling_lnum: already at last returns same"] = function()
+  local tree = require("voom.tree")
+  local levels = { 1, 2, 2, 1, 2 }
+  MiniTest.expect.equality(tree.find_last_sibling_lnum(levels, 5), 5)
+end
+
+T["outline traversal"]["find_first_sibling_lnum: middle sibling returns first"] = function()
+  local tree = require("voom.tree")
+  local levels = { 1, 2, 2, 1, 2 }
+  -- Tree line 4 is a level-2 sibling; the first sibling is tree line 3.
+  MiniTest.expect.equality(tree.find_first_sibling_lnum(levels, 4), 3)
+  -- Tree line 5 (level 1) is second; first is tree line 2.
+  MiniTest.expect.equality(tree.find_first_sibling_lnum(levels, 5), 2)
+end
+
+T["outline traversal"]["find_last_sibling_lnum: middle sibling returns last"] = function()
+  local tree = require("voom.tree")
+  local levels = { 1, 2, 2, 1, 2 }
+  -- Tree line 3 is a level-2 sibling; the last sibling under the same parent
+  -- is tree line 4.
+  MiniTest.expect.equality(tree.find_last_sibling_lnum(levels, 3), 4)
+  -- Tree line 2 (level 1); last level-1 sibling is tree line 5.
+  MiniTest.expect.equality(tree.find_last_sibling_lnum(levels, 2), 5)
+end
+
+-- ==============================================================================
+-- tree.lua: build_unl
+-- ==============================================================================
+
+T["tree.build_unl"] = MiniTest.new_set({
+  hooks = {
+    pre_case = function()
+      T["tree.build_unl"]._body_buf = nil
+      T["tree.build_unl"]._tree_buf = nil
+    end,
+    post_case = function()
+      local state = require("voom.state")
+      local body = T["tree.build_unl"]._body_buf
+      if body and state.is_body(body) then
+        require("voom.tree").close(body)
+      end
+      del_buf(T["tree.build_unl"]._body_buf)
+    end,
+  },
+})
+
+T["tree.build_unl"]["root node returns empty string"] = function()
+  local tree_mod = require("voom.tree")
+  local state    = require("voom.state")
+  local lines    = load_fixture("sample.md")
+  local body     = make_scratch_buf(lines, "sample.md")
+  T["tree.build_unl"]._body_buf = body
+
+  local tree_buf = tree_mod.create(body, "markdown")
+  T["tree.build_unl"]._tree_buf = tree_buf
+
+  local outline = state.get_outline(body)
+  MiniTest.expect.equality(tree_mod.build_unl(tree_buf, outline.levels, 1), "")
+end
+
+T["tree.build_unl"]["level-1 node returns just its heading"] = function()
+  local tree_mod = require("voom.tree")
+  local state    = require("voom.state")
+  local lines    = load_fixture("sample.md")
+  local body     = make_scratch_buf(lines, "sample.md")
+  T["tree.build_unl"]._body_buf = body
+
+  local tree_buf = tree_mod.create(body, "markdown")
+  T["tree.build_unl"]._tree_buf = tree_buf
+
+  local outline = state.get_outline(body)
+  -- Tree line 2 = "# Project Overview" (level 1).
+  local unl = tree_mod.build_unl(tree_buf, outline.levels, 2)
+  MiniTest.expect.equality(unl, "Project Overview")
+end
+
+T["tree.build_unl"]["nested node returns full path"] = function()
+  local tree_mod = require("voom.tree")
+  local state    = require("voom.state")
+  local lines    = load_fixture("sample.md")
+  local body     = make_scratch_buf(lines, "sample.md")
+  T["tree.build_unl"]._body_buf = body
+
+  local tree_buf = tree_mod.create(body, "markdown")
+  T["tree.build_unl"]._tree_buf = tree_buf
+
+  local outline = state.get_outline(body)
+  -- Tree line 4 = "### Requirements" (level 3, under Installation → Project Overview).
+  -- Expected UNL: "Project Overview > Installation > Requirements"
+  local unl = tree_mod.build_unl(tree_buf, outline.levels, 4)
+  MiniTest.expect.equality(unl, "Project Overview > Installation > Requirements")
+end
+
+-- ==============================================================================
+-- tree.lua: body_select
+-- ==============================================================================
+
+T["tree.body_select"] = MiniTest.new_set({
+  hooks = {
+    pre_case = function()
+      T["tree.body_select"]._body_buf = nil
+      T["tree.body_select"]._tree_buf = nil
+    end,
+    post_case = function()
+      local state = require("voom.state")
+      local body = T["tree.body_select"]._body_buf
+      if body and state.is_body(body) then
+        require("voom.tree").close(body)
+      end
+      del_buf(T["tree.body_select"]._body_buf)
+    end,
+  },
+})
+
+T["tree.body_select"]["cursor on body line before first heading selects root"] = function()
+  local tree_mod = require("voom.tree")
+  local state    = require("voom.state")
+
+  -- A buffer where the first heading is not on line 1.
+  local lines = {
+    "preamble text",
+    "",
+    "# First Heading",
+    "content",
+  }
+  local body = make_scratch_buf(lines, "select_test.md")
+  T["tree.body_select"]._body_buf = body
+
+  vim.api.nvim_set_current_buf(body)
+  local tree_buf = tree_mod.create(body, "markdown")
+  T["tree.body_select"]._tree_buf = tree_buf
+
+  -- Place cursor on the preamble (before first heading).
+  local body_win
+  for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+    if vim.api.nvim_win_get_buf(win) == body then body_win = win break end
+  end
+  vim.api.nvim_win_set_cursor(body_win, { 1, 0 })
+  vim.api.nvim_set_current_win(body_win)
+
+  tree_mod.body_select(body)
+
+  -- No bnode ≤ 1 (first heading is on line 3), so root is selected.
+  MiniTest.expect.equality(state.get_snLn(body), 1)
+  -- Focus should remain in the body window.
+  MiniTest.expect.equality(vim.api.nvim_get_current_win(), body_win)
+end
+
+T["tree.body_select"]["cursor on heading line selects that heading's tree node"] = function()
+  local tree_mod = require("voom.tree")
+  local state    = require("voom.state")
+  local lines    = load_fixture("sample.md")
+  local body     = make_scratch_buf(lines, "sample.md")
+  T["tree.body_select"]._body_buf = body
+
+  vim.api.nvim_set_current_buf(body)
+  local tree_buf = tree_mod.create(body, "markdown")
+  T["tree.body_select"]._tree_buf = tree_buf
+
+  -- sample.md line 1 is "# Project Overview" → bnodes[1] = 1 → tree line 2.
+  local body_win
+  for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+    if vim.api.nvim_win_get_buf(win) == body then body_win = win break end
+  end
+  vim.api.nvim_win_set_cursor(body_win, { 1, 0 })
+  vim.api.nvim_set_current_win(body_win)
+
+  tree_mod.body_select(body)
+
+  MiniTest.expect.equality(state.get_snLn(body), 2)
+end
+
+T["tree.body_select"]["cursor in body content between headings selects preceding heading"] = function()
+  local tree_mod = require("voom.tree")
+  local state    = require("voom.state")
+  local lines    = load_fixture("sample.md")
+  local body     = make_scratch_buf(lines, "sample.md")
+  T["tree.body_select"]._body_buf = body
+
+  vim.api.nvim_set_current_buf(body)
+  local tree_buf = tree_mod.create(body, "markdown")
+  T["tree.body_select"]._tree_buf = tree_buf
+
+  -- sample.md line 3 is body content under "# Project Overview" (line 1).
+  -- The preceding heading is still the first one → tree line 2.
+  local body_win
+  for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+    if vim.api.nvim_win_get_buf(win) == body then body_win = win break end
+  end
+  vim.api.nvim_win_set_cursor(body_win, { 3, 0 })
+  vim.api.nvim_set_current_win(body_win)
+
+  tree_mod.body_select(body)
+
+  -- Cursor is on line 3, bnodes[1]=1 ≤ 3, bnodes[2]=6 > 3 → selects tree line 2.
+  MiniTest.expect.equality(state.get_snLn(body), 2)
+end
+
 return T

@@ -26,3 +26,11 @@ end, {})
 vim.api.nvim_create_user_command("Voomlog", function()
   require("voom").log_init()
 end, {})
+
+vim.api.nvim_create_user_command("VoomGrep", function(opts)
+  require("voom").grep(opts.args)
+end, { nargs = 1 })
+
+vim.api.nvim_create_user_command("Voominfo", function()
+  require("voom").voominfo()
+end, {})

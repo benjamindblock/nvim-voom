@@ -19,7 +19,7 @@ local M = {}
 -- tree_bufnr → body_bufnr
 M.trees = {}
 
--- body_bufnr → { tree, snLn, mode, bnodes, levels }
+-- body_bufnr → { tree, snLn, mode, bnodes, levels, changedtick }
 M.bodies = {}
 
 -- ==============================================================================
@@ -35,11 +35,19 @@ M.bodies = {}
 function M.register(body_buf, tree_buf, mode, outline)
   M.trees[tree_buf] = body_buf
   M.bodies[body_buf] = {
-    tree   = tree_buf,
-    snLn   = 1,
-    mode   = mode,
-    bnodes = outline.bnodes,
-    levels = outline.levels,
+    tree        = tree_buf,
+    snLn        = 1,
+    mode        = mode,
+    bnodes      = outline.bnodes,
+    levels      = outline.levels,
+    -- Snapshot the tick so the BufEnter autocmd can detect out-of-band edits
+    -- (e.g. changes made while the panel was closed, or edits in another tab).
+    -- pcall guards against tests that register placeholder (non-real) buffer
+    -- numbers; in production body_buf is always a valid live buffer.
+    changedtick = (function()
+      local ok, tick = pcall(vim.api.nvim_buf_get_changedtick, body_buf)
+      return ok and tick or 0
+    end)(),
   }
 end
 
@@ -103,6 +111,21 @@ function M.set_snLn(body_buf, lnum)
   local entry = M.bodies[body_buf]
   if entry then
     entry.snLn = lnum
+  end
+end
+
+-- Return the stored changedtick for a body buffer, or nil.
+function M.get_changedtick(body_buf)
+  local entry = M.bodies[body_buf]
+  return entry and entry.changedtick or nil
+end
+
+-- Overwrite the stored changedtick (called after a tree rebuild triggered by
+-- BufEnter, to avoid redundant rebuilds on the next re-entry).
+function M.set_changedtick(body_buf, tick)
+  local entry = M.bodies[body_buf]
+  if entry then
+    entry.changedtick = tick
   end
 end
 
