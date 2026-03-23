@@ -1,0 +1,30 @@
+[tools]
+lua = "latest"
+stylua = "latest"
+lua-language-server = "latest"
+
+[tasks.test]
+description = "Run the full test suite in headless Neovim"
+run = """
+nvim --headless --noplugin \
+  -u test/minimal_init.lua \
+  -c "lua MiniTest.run()" \
+  -c "qa!"
+"""
+
+[tasks.test-file]
+description = "Run a single test file: mise run test-file test/spec/voom_spec.lua"
+run = """
+nvim --headless --noplugin \
+  -u test/minimal_init.lua \
+  -c "lua MiniTest.run_file('{{arg(0)}}')" \
+  -c "qa!"
+"""
+
+[tasks.fmt]
+description = "Format all Lua files with StyLua"
+run = "stylua lua/ plugin/ test/"
+
+[tasks.fmt-check]
+description = "Check Lua formatting without modifying files (useful in CI)"
+run = "stylua --check lua/ plugin/ test/"
