@@ -733,12 +733,12 @@ function M.set_keymaps(tree_buf, body_buf)
 
   -- Disable text-modification keys so the buffer feels truly read-only
   -- even though 'nomodifiable' already prevents changes.
-  -- Note: 's', 'S', 'o', 'O', 'c', 'C' are now mapped above and intentionally
-  -- excluded from this list.
+  -- Note: 's', 'S', 'o', 'O', 'c', 'C', 'D', 'U' are mapped above and
+  -- intentionally excluded from this list.
   disable_keys(tree_buf, {
     "i", "I", "a", "A",
     "r", "R", "x", "X",
-    "d", "D", "p",
+    "d", "p",
     "u", "<C-r>",
     "zf", "zF", "zd", "zD",
   })
