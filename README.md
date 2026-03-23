@@ -1,8 +1,9 @@
-# VOoM
+# nvim-voom
 
-VOoM (Vim Outliner of Markers) is a two-pane outliner plugin for Neovim. It
-creates a tree buffer mirroring the heading structure of the current buffer,
-enabling fast navigation of structured documents.
+nvim-voom is a pure Lua port of the Vim plugin VOoM (Vim Outliner of Markups).
+nvim-voom is a two-pane outliner plugin for Neovim. It creates a tree buffer
+mirroring the heading structure of the current buffer, enabling fast navigation
+of structured documents.
 
 > **Status:** This is an in-progress Lua rewrite. The original Python-based
 > plugin is included as a git submodule at `legacy/`
@@ -12,8 +13,8 @@ enabling fast navigation of structured documents.
 
 Using [vim-plug](https://github.com/junegunn/vim-plug):
 
-```vim
-Plug 'benjamindblock/VOoM'
+```neovim
+plug("benjamindblock/nvim-voom")
 ```
 
 ## Commands
@@ -22,8 +23,8 @@ Plug 'benjamindblock/VOoM'
 :Voom [mode]         " Open the tree pane (auto-detects filetype if mode omitted)
 :VoomToggle [mode]   " Toggle the tree pane open/closed
 :VoomGrep {pattern}  " Search headings for pattern; results go to the quickfix list
-:Voominfo            " Display state info for the current VOoM session
-:Voomlog             " Open the VOoM log buffer
+:Voominfo            " Display state info for the current nvim-voom session
+:Voomlog             " Open the nvim-voom log buffer
 :Voomhelp            " Open the help file
 ```
 
@@ -38,8 +39,9 @@ mode name to `:Voom` or `:VoomToggle` to override.
 
 ## Tree pane
 
-Opening VOoM splits the window with a narrow tree pane on the left. Each line
-in the tree represents one heading. Indentation depth mirrors heading level:
+Opening nvim-voom splits the window with a narrow tree pane on the left. Each
+line in the tree represents one heading. Indentation depth mirrors heading
+level:
 
 ```
   |sample.md
