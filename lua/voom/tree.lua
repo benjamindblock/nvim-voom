@@ -9,8 +9,8 @@
 --   - auto-refresh when the body is saved or re-entered after edits
 --
 -- The tree buffer is a scratch/nofile buffer.  Its lines have the format:
---   Line 1 : root node  →  "  •{filename}"
---   Line k  : heading    →  "  [. ]*|{heading_text}"   (from mode.tlines)
+--   Line 1 : root node  →  " • {filename}"
+--   Line k  : heading    →  " [· ]*· {heading_text}"   (from mode.tlines)
 --
 -- Index mapping (root node at line 1 occupies the slot Python's caller
 -- injected separately; headings start at tree line 2):
@@ -72,7 +72,7 @@ local function build_tree_lines(buf_name, outline)
   -- level-1 headings, which also begin with "  |".  Without this, the root
   -- looks like a peer of its children and implies it can be navigated with
   -- J/K the way headings can.
-  local lines = { "  •" .. tail }
+  local lines = { " • " .. tail }
   for _, tl in ipairs(outline.tlines) do
     table.insert(lines, tl)
   end
@@ -84,7 +84,9 @@ end
 -- Returns the empty string for lines without a '|' (should not occur in
 -- practice, but defensive is better).
 local function heading_text_from_tree_line(line)
-  local text = line:match("|(.*)$")
+  -- The text follows the last "· " in the line (greedy match skips all
+  -- indentation dots and lands on the icon-position · before the text).
+  local text = line:match(".*· (.+)$")
   return text or ""
 end
 
@@ -176,13 +178,14 @@ function M.apply_fold_indicators(tree_buf, body_buf)
       icon, hl = icons.leaf, "VoomLeafNode"
     end
 
-    -- The | character sits at byte offset 2 + (lev-1)*2 (0-indexed).
-    -- Format: "  " + string.rep(". ", lev-1) + "|" + text
+    -- The icon-placeholder · sits at byte offset 1 + (lev-1)*3 (0-indexed).
+    -- Each "· " pair is 3 bytes (· is 2-byte UTF-8 + 1-byte space).
+    -- Format: " " + string.rep("· ", lev-1) + "· " + text
     local lev = levels[idx]
-    local col = 2 + (lev - 1) * 2
+    local col = 1 + (lev - 1) * 3
 
     vim.api.nvim_buf_set_extmark(tree_buf, FOLD_NS, lnum - 1, col, {
-      end_col       = col + 1,
+      end_col       = col + 2,   -- · is 2 UTF-8 bytes
       virt_text     = { { icon, hl } },
       virt_text_pos = "overlay",
     })

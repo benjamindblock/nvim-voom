@@ -160,10 +160,10 @@ function M.make_outline(lines, buf_name)
       goto continue
     end
 
-    -- Format the tree display line. Indentation is two leading spaces plus
-    -- one ". " pair per level beyond 1, followed by "|" and the heading text.
-    -- Example: level 3 → "  . . |My Heading"
-    table.insert(tlines, "  " .. string.rep(". ", lev - 1) .. "|" .. head)
+    -- Format the tree display line. One leading space plus one "· " pair per
+    -- level, where the last · is the fold-state icon placeholder.
+    -- Example: level 3 → " · · · My Heading"
+    table.insert(tlines, " " .. string.rep("· ", lev - 1) .. "· " .. head)
     table.insert(bnodes, i)
     table.insert(levels, lev)
 

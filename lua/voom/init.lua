@@ -215,7 +215,7 @@ function M.grep(args)
     local tree_lnum = i + 1
     local raw = vim.api.nvim_buf_get_lines(tree_buf, tree_lnum - 1, tree_lnum, false)[1] or ""
     -- heading_text_from_tree_line is module-private, replicate its logic here.
-    local text = raw:match("|(.*)$") or ""
+    local text = raw:match(".*· (.+)$") or ""
 
     if text:match(args) then
       table.insert(entries, {
@@ -261,7 +261,7 @@ function M.voominfo()
   local headline = "(root)"
   if snLn > 1 and vim.api.nvim_buf_is_valid(tree_buf) then
     local raw = vim.api.nvim_buf_get_lines(tree_buf, snLn - 1, snLn, false)[1] or ""
-    headline = raw:match("|(.*)$") or "(unknown)"
+    headline = raw:match(".*· (.+)$") or "(unknown)"
   end
 
   local msg = string.format(

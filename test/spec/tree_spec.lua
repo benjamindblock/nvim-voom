@@ -197,7 +197,7 @@ T["tree.create"]["tree line 1 is the root node with filename"] = function()
 
   local first = vim.api.nvim_buf_get_lines(tree_buf, 0, 1, false)[1]
   -- Root node contains the filename tail.
-  MiniTest.expect.equality(first:match("•sample%.md") ~= nil, true)
+  MiniTest.expect.equality(first:match("• sample%.md") ~= nil, true)
 end
 
 T["tree.create"]["tree lines 2+ match headings from sample.md"] = function()
@@ -214,9 +214,9 @@ T["tree.create"]["tree lines 2+ match headings from sample.md"] = function()
   MiniTest.expect.equality(#tree_lines, 11)
 
   -- Line 2 is the first heading: "# Project Overview" → level 1, no indent.
-  MiniTest.expect.equality(tree_lines[2], "  |Project Overview")
-  -- Line 3 is the second heading: "## Installation" → level 2, one ". ".
-  MiniTest.expect.equality(tree_lines[3], "  . |Installation")
+  MiniTest.expect.equality(tree_lines[2], " · Project Overview")
+  -- Line 3 is the second heading: "## Installation" → level 2, one "· ".
+  MiniTest.expect.equality(tree_lines[3], " · · Installation")
 end
 
 T["tree.create"]["registers body and tree in state"] = function()
@@ -409,7 +409,7 @@ T["tree.update"]["rebuilds tree lines after body content changes"] = function()
   -- After update: root node + 2 headings = 3 lines.
   local after = vim.api.nvim_buf_get_lines(tree_buf, 0, -1, false)
   MiniTest.expect.equality(#after, 3)
-  MiniTest.expect.equality(after[3], "  . |Sub Heading")
+  MiniTest.expect.equality(after[3], " · · Sub Heading")
 end
 
 -- ==============================================================================

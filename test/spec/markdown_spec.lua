@@ -58,7 +58,7 @@ T["make_outline"]["hash level 1 detected"] = function()
   local result = md.make_outline({ "# Hello" }, "test.md")
   MiniTest.expect.equality(#result.tlines, 1)
   MiniTest.expect.equality(result.levels[1], 1)
-  MiniTest.expect.equality(result.tlines[1], "  |Hello")
+  MiniTest.expect.equality(result.tlines[1], " · Hello")
   MiniTest.expect.equality(result.bnodes[1], 1)
 end
 
@@ -66,20 +66,20 @@ T["make_outline"]["hash level 2 detected"] = function()
   local md = require("voom.modes.markdown")
   local result = md.make_outline({ "## Section" }, "test.md")
   MiniTest.expect.equality(result.levels[1], 2)
-  MiniTest.expect.equality(result.tlines[1], "  . |Section")
+  MiniTest.expect.equality(result.tlines[1], " · · Section")
 end
 
 T["make_outline"]["hash level 3 detected"] = function()
   local md = require("voom.modes.markdown")
   local result = md.make_outline({ "### Sub" }, "test.md")
   MiniTest.expect.equality(result.levels[1], 3)
-  MiniTest.expect.equality(result.tlines[1], "  . . |Sub")
+  MiniTest.expect.equality(result.tlines[1], " · · · Sub")
 end
 
 T["make_outline"]["hash strips closing hashes"] = function()
   local md = require("voom.modes.markdown")
   local result = md.make_outline({ "## Section ##" }, "test.md")
-  MiniTest.expect.equality(result.tlines[1], "  . |Section")
+  MiniTest.expect.equality(result.tlines[1], " · · Section")
 end
 
 T["make_outline"]["hash correct bnode line numbers"] = function()
@@ -102,7 +102,7 @@ T["make_outline"]["underline level 1 with ==="] = function()
   local result = md.make_outline(lines, "test.md")
   MiniTest.expect.equality(#result.tlines, 1)
   MiniTest.expect.equality(result.levels[1], 1)
-  MiniTest.expect.equality(result.tlines[1], "  |Title")
+  MiniTest.expect.equality(result.tlines[1], " · Title")
   MiniTest.expect.equality(result.bnodes[1], 1)
 end
 
@@ -111,7 +111,7 @@ T["make_outline"]["underline level 2 with ---"] = function()
   local lines = { "Section", "-------" }
   local result = md.make_outline(lines, "test.md")
   MiniTest.expect.equality(result.levels[1], 2)
-  MiniTest.expect.equality(result.tlines[1], "  . |Section")
+  MiniTest.expect.equality(result.tlines[1], " · · Section")
 end
 
 T["make_outline"]["underline adornment line not treated as title"] = function()
@@ -121,8 +121,8 @@ T["make_outline"]["underline adornment line not treated as title"] = function()
   local lines = { "Title", "=====", "Next Heading", "------------" }
   local result = md.make_outline(lines, "test.md")
   MiniTest.expect.equality(#result.tlines, 2)
-  MiniTest.expect.equality(result.tlines[1], "  |Title")
-  MiniTest.expect.equality(result.tlines[2], "  . |Next Heading")
+  MiniTest.expect.equality(result.tlines[1], " · Title")
+  MiniTest.expect.equality(result.tlines[2], " · · Next Heading")
 end
 
 T["make_outline"]["underline bnode points to title not adornment"] = function()
@@ -185,7 +185,7 @@ T["fixture"]["first heading is Project Overview at level 1"] = function()
   local md = require("voom.modes.markdown")
   local lines = load_fixture("sample.md")
   local result = md.make_outline(lines, "sample.md")
-  MiniTest.expect.equality(result.tlines[1], "  |Project Overview")
+  MiniTest.expect.equality(result.tlines[1], " · Project Overview")
   MiniTest.expect.equality(result.levels[1], 1)
   MiniTest.expect.equality(result.bnodes[1], 1)
 end

@@ -52,20 +52,20 @@ T["apply_fold_indicators"] = MiniTest.new_set({
         bnodes = { 1, 5, 10, 20 },
         levels = { 1, 2, 2, 1 },
         tlines = {
-          "  |Heading One",
-          "  . |Child A",
-          "  . |Child B",
-          "  |Heading Two",
+          " · Heading One",
+          " · · Child A",
+          " · · Child B",
+          " · Heading Two",
         },
       }
       local body_buf = make_scratch_buf()
       -- Tree buf holds the actual display lines (root line + 4 heading lines).
       local tree_lines = {
-        "  \xe2\x80\xa2README.md", -- root: "  •README.md"
-        "  |Heading One",
-        "  . |Child A",
-        "  . |Child B",
-        "  |Heading Two",
+        " \xe2\x80\xa2 README.md", -- root: " • README.md"
+        " · Heading One",
+        " · · Child A",
+        " · · Child B",
+        " · Heading Two",
       }
       local tree_buf = make_scratch_buf(tree_lines)
 
@@ -177,11 +177,11 @@ T["apply_fold_indicators"]["icon column matches heading level indentation"] = fu
   tree.apply_fold_indicators(tree_buf, body_buf)
 
   local ns = vim.api.nvim_create_namespace("voom_fold_indicators")
-  -- Level-1 heading: col = 2 + (1-1)*2 = 2
+  -- Level-1 heading: col = 1 + (1-1)*2 = 1
   local marks_lev1 = vim.api.nvim_buf_get_extmarks(tree_buf, ns, { 1, 0 }, { 1, -1 }, {})
-  MiniTest.expect.equality(marks_lev1[1][3], 2)
+  MiniTest.expect.equality(marks_lev1[1][3], 1)
 
-  -- Level-2 heading: col = 2 + (2-1)*2 = 4
+  -- Level-2 heading: col = 1 + (2-1)*3 = 4
   local marks_lev2 = vim.api.nvim_buf_get_extmarks(tree_buf, ns, { 2, 0 }, { 2, -1 }, {})
   MiniTest.expect.equality(marks_lev2[1][3], 4)
 end
