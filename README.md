@@ -23,6 +23,7 @@ plug("benjamindblock/nvim-voom")
 :Voom [mode]         " Open the tree pane (auto-detects filetype if mode omitted)
 :VoomToggle [mode]   " Toggle the tree pane open/closed
 :VoomGrep {pattern}  " Search headings for pattern; results go to the quickfix list
+:VoomSort [opts]     " Sort sibling nodes under the current heading (see below)
 :Voominfo            " Display state info for the current nvim-voom session
 :Voomlog             " Open the nvim-voom log buffer
 :Voomhelp            " Open the help file
@@ -88,6 +89,25 @@ saved, and also when you re-enter the body after an out-of-band edit.
 | `s` | Echo the heading text of the current node to the command line             |
 | `S` | Echo the full UNL path (`Head > Sub > Leaf`) and yank it to register `n` |
 
+### Editing
+
+| Key                | Action                                                                  |
+|--------------------|-------------------------------------------------------------------------|
+| `i`                | Jump to the body buffer with cursor on the heading line                 |
+| `I`                | Jump to the body buffer with cursor on the last line of the node's body |
+| `aa`               | Insert a new sibling node after the current one                         |
+| `AA`               | Insert a new child node under the current one                           |
+| `yy`               | Copy the current node and its subtree to the plugin clipboard           |
+| `dd`               | Cut the current node and its subtree (stores in plugin clipboard)       |
+| `pp`               | Paste the clipboard contents after the current node                     |
+| `^^` / `<C-Up>`    | Move the current node and its subtree up (swap with previous sibling)   |
+| `__` / `<C-Down>`  | Move the current node and its subtree down (swap with next sibling)     |
+| `<<` / `<C-Left>`  | Promote: decrease heading level by 1                                    |
+| `>>` / `<C-Right>` | Demote: increase heading level by 1                                     |
+
+When inserting a new node (`aa` / `AA`), the cursor lands on the placeholder
+text `NewHeadline` in the body buffer — use `ciw` to replace it immediately.
+
 ## Keymaps — body pane
 
 | Key    | Action                                                               |
@@ -107,6 +127,21 @@ clicks — trigger the follow.
 `:VoomGrep {pattern}` searches the heading texts of the current body buffer
 using a Lua pattern and populates the quickfix list with matching entries. Open
 the quickfix list with `:copen` or let `:VoomGrep` open it automatically.
+
+## VoomSort
+
+`:VoomSort [opts]` sorts the sibling nodes of the current heading. The sort
+operates on the current heading's siblings (nodes at the same level under the
+same parent), moving each node together with its entire subtree.
+
+| Option    | Effect                                      |
+|-----------|---------------------------------------------|
+| _(none)_  | Alphabetical sort (A–Z)                     |
+| `r`       | Reverse alphabetical sort (Z–A)             |
+| `i`       | Case-insensitive alphabetical sort          |
+| `i r`     | Case-insensitive, reverse alphabetical sort |
+| `flip`    | Reverse the current order                   |
+| `shuffle` | Randomize order (Fisher-Yates shuffle)      |
 
 ## Development
 
