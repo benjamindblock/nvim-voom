@@ -289,6 +289,46 @@ T["tree.create"]["initializes folds on first open"] = function()
   MiniTest.expect.equality(foldlevel > 0, true)
 end
 
+T["tree.create"]["sets winbar with filename and heading count"] = function()
+  local tree  = require("voom.tree")
+  local lines = load_fixture("sample.md")
+  local body  = make_scratch_buf(lines, "sample.md")
+  T["tree.create"]._body_buf = body
+
+  local tree_buf = tree.create(body, "markdown")
+  T["tree.create"]._tree_buf = tree_buf
+
+  local tree_win = find_win_for_buf(tree_buf)
+  MiniTest.expect.equality(tree_win ~= nil, true)
+
+  local winbar = vim.api.nvim_get_option_value("winbar", { win = tree_win })
+  -- Winbar should contain the filename tail.
+  MiniTest.expect.equality(winbar:find("sample%.md", 1, false) ~= nil, true)
+  -- sample.md has 10 headings.
+  MiniTest.expect.equality(winbar:find("10 headings", 1, true) ~= nil, true)
+end
+
+T["tree.create"]["winbar updates heading count after tree.update"] = function()
+  local tree  = require("voom.tree")
+  local lines = load_fixture("sample.md")
+  local body  = make_scratch_buf(lines, "sample.md")
+  T["tree.create"]._body_buf = body
+
+  local tree_buf = tree.create(body, "markdown")
+  T["tree.create"]._tree_buf = tree_buf
+
+  -- Remove all headings from the body buffer and trigger a rebuild.
+  local plain = { "No headings here." }
+  vim.api.nvim_buf_set_lines(body, 0, -1, false, plain)
+  tree.update(body)
+
+  local tree_win = find_win_for_buf(tree_buf)
+  MiniTest.expect.equality(tree_win ~= nil, true)
+
+  local winbar = vim.api.nvim_get_option_value("winbar", { win = tree_win })
+  MiniTest.expect.equality(winbar:find("0 headings", 1, true) ~= nil, true)
+end
+
 -- ==============================================================================
 -- tree.lua: fold actions
 -- ==============================================================================

@@ -206,6 +206,32 @@ function M.apply_fold_indicators(tree_buf, body_buf)
 end
 
 -- ==============================================================================
+-- Winbar helpers
+-- ==============================================================================
+
+-- Set the tree window's winbar to show the body filename and heading count.
+--
+-- The icon 󰈙 requires a Nerd Font; users without one can override the winbar
+-- highlight or set a custom winbar after the tree is created.  We use
+-- `default = false` (normal set_option_value) so the winbar updates
+-- dynamically as the tree is rebuilt.
+local function update_winbar(tree_win, body_buf)
+  if not vim.api.nvim_win_is_valid(tree_win) then return end
+
+  local outline = state.get_outline(body_buf)
+  local count   = outline and #outline.levels or 0
+  local name    = vim.fn.fnamemodify(vim.api.nvim_buf_get_name(body_buf), ":t")
+  -- Fall back to "[No Name]" for unnamed scratch buffers.
+  if name == "" then name = "[No Name]" end
+
+  vim.api.nvim_set_option_value(
+    "winbar",
+    " 󰈙 " .. name .. "  ·  " .. count .. " headings",
+    { win = tree_win }
+  )
+end
+
+-- ==============================================================================
 -- Keymap helpers
 -- ==============================================================================
 
@@ -1396,6 +1422,7 @@ function M.create(body_buf, mode_name)
   -- been configured.  Must come after setup_autocommands so that the tree win
   -- is fully initialised before foldclosed() is queried inside the function.
   M.apply_fold_indicators(tree_buf, body_buf)
+  update_winbar(tree_win, body_buf)
 
   -- Leave the cursor in the body window so the user can continue editing.
   local new_body_win = find_win_for_buf(body_buf)
@@ -1436,6 +1463,9 @@ function M.update(body_buf)
   end
 
   M.apply_fold_indicators(entry.tree, body_buf)
+  if tree_win then
+    update_winbar(tree_win, body_buf)
+  end
 end
 
 -- Delete the tree buffer and clean up all associated state for `body_buf`.
