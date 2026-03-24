@@ -28,6 +28,10 @@ local config = require("voom.config")
 local modes  = require("voom.modes")
 local state  = require("voom.state")
 
+-- Extmark namespace for fold-state icon overlays.  Created once at module
+-- load; Neovim returns the same integer for repeated calls with the same name.
+local FOLD_NS = vim.api.nvim_create_namespace("voom_fold_indicators")
+
 -- ==============================================================================
 -- Internal helpers
 -- ==============================================================================
@@ -82,6 +86,107 @@ end
 local function heading_text_from_tree_line(line)
   local text = line:match("|(.*)$")
   return text or ""
+end
+
+-- ==============================================================================
+-- Fold-state indicator helpers
+-- ==============================================================================
+
+-- Define highlight groups used by the fold-state icon extmarks.
+--
+-- All groups use `default = true` so that colorschemes (and users' init.lua)
+-- can override them without the plugin overwriting their preferences.
+local function define_highlights()
+  vim.api.nvim_set_hl(0, "VoomFoldOpen",   { default = true, fg = "#7aa2f7" }) -- ▾ blue
+  vim.api.nvim_set_hl(0, "VoomFoldClosed", { default = true, fg = "#e0af68" }) -- ▶ amber
+  vim.api.nvim_set_hl(0, "VoomLeafNode",   { default = true, fg = "#565f89" }) -- · muted grey
+end
+
+-- Re-apply highlights whenever the colorscheme changes so user theme overrides
+-- take effect without a plugin reload.
+vim.api.nvim_create_autocmd("ColorScheme", {
+  group    = vim.api.nvim_create_augroup("voom_highlights", { clear = true }),
+  callback = define_highlights,
+})
+
+define_highlights()
+
+-- Apply virtual-text fold-state icons to every heading line in `tree_buf`.
+--
+-- The `|` separator in each heading line is overlaid (not replaced in the
+-- buffer) with one of three icons:
+--   ▾  — parent node, subtree visible
+--   ▶  — parent node, subtree folded
+--   ·  — leaf node (no children)
+--
+-- Icons are placed via nvim_buf_set_extmark with virt_text_pos="overlay",
+-- which requires no conceallevel setting and does not modify buffer text.
+-- All existing extmarks in FOLD_NS are cleared before re-applying so that
+-- stale marks never linger after structural edits that change the line count.
+--
+-- Fold state is queried with foldclosed() inside nvim_win_call so the result
+-- reflects the tree window's fold state regardless of which window is current.
+-- If the tree window is not visible (e.g. during a headless test), the
+-- function returns early without placing any marks.
+function M.apply_fold_indicators(tree_buf, body_buf)
+  if not vim.api.nvim_buf_is_valid(tree_buf) then return end
+
+  -- Read config, falling back to defaults if setup() has not been called.
+  local cfg = (config.options and config.options.fold_indicators)
+    or config.defaults.fold_indicators
+
+  -- Always clear stale marks first, even when the feature is disabled.
+  vim.api.nvim_buf_clear_namespace(tree_buf, FOLD_NS, 0, -1)
+  if not cfg.enabled then return end
+
+  local outline = body_buf and state.get_outline(body_buf)
+  if not outline then return end
+
+  -- Fold state is window-local; we must query from inside the tree window.
+  local tree_win = find_win_for_buf(tree_buf)
+  if not tree_win then return end
+
+  local levels  = outline.levels
+  local n_nodes = #levels
+  local n_lines = vim.api.nvim_buf_line_count(tree_buf)
+  local icons   = cfg.icons
+
+  -- Line 1 is the root node (•filename) — no icon overlay needed there.
+  for lnum = 2, n_lines do
+    local idx = lnum - 1   -- 1-based index into levels[]
+
+    -- A node has children when the next entry in levels[] is strictly deeper.
+    -- The last node always has nil at idx+1, making it a leaf by definition.
+    local has_children = (levels[idx + 1] ~= nil)
+      and (levels[idx + 1] > levels[idx])
+
+    local icon, hl
+    if has_children then
+      -- foldclosed(lnum) returns lnum when that line is a closed fold start,
+      -- or -1 when the line is visible (open or not a fold boundary).
+      local fold_start = vim.api.nvim_win_call(tree_win, function()
+        return vim.fn.foldclosed(lnum)
+      end)
+      if fold_start == lnum then
+        icon, hl = icons.closed, "VoomFoldClosed"
+      else
+        icon, hl = icons.open,   "VoomFoldOpen"
+      end
+    else
+      icon, hl = icons.leaf, "VoomLeafNode"
+    end
+
+    -- The | character sits at byte offset 2 + (lev-1)*2 (0-indexed).
+    -- Format: "  " + string.rep(". ", lev-1) + "|" + text
+    local lev = levels[idx]
+    local col = 2 + (lev - 1) * 2
+
+    vim.api.nvim_buf_set_extmark(tree_buf, FOLD_NS, lnum - 1, col, {
+      end_col       = col + 1,
+      virt_text     = { { icon, hl } },
+      virt_text_pos = "overlay",
+    })
+  end
 end
 
 -- ==============================================================================
