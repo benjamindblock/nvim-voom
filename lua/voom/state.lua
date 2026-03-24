@@ -19,7 +19,7 @@ local M = {}
 -- tree_bufnr → body_bufnr
 M.trees = {}
 
--- body_bufnr → { tree, snLn, mode, bnodes, levels, changedtick }
+-- body_bufnr → { tree, snLn, mode, bnodes, levels, outline_state, changedtick }
 M.bodies = {}
 
 -- ==============================================================================
@@ -40,6 +40,13 @@ function M.register(body_buf, tree_buf, mode, outline)
     mode        = mode,
     bnodes      = outline.bnodes,
     levels      = outline.levels,
+    -- Style preferences detected by the mode parser.  Editing operations
+    -- (new_headline, do_body_after_oop) use these to generate headings in
+    -- the user's preferred format (ATX vs setext, closing hashes or not).
+    outline_state = {
+      use_hash       = outline.use_hash,
+      use_close_hash = outline.use_close_hash,
+    },
     -- Snapshot the tick so the BufEnter autocmd can detect out-of-band edits
     -- (e.g. changes made while the panel was closed, or edits in another tab).
     -- pcall guards against tests that register placeholder (non-real) buffer
@@ -98,6 +105,20 @@ function M.set_outline(body_buf, outline)
   if not entry then return end
   entry.bnodes = outline.bnodes
   entry.levels = outline.levels
+  -- Update style preferences when available (they may change if the user
+  -- manually edits headings in the body buffer between rebuilds).
+  if outline.use_hash ~= nil then
+    entry.outline_state = {
+      use_hash       = outline.use_hash,
+      use_close_hash = outline.use_close_hash,
+    }
+  end
+end
+
+-- Return the stored outline style preferences for a body buffer, or nil.
+function M.get_outline_state(body_buf)
+  local entry = M.bodies[body_buf]
+  return entry and entry.outline_state or nil
 end
 
 -- Return the currently selected tree line number for a body buffer.
