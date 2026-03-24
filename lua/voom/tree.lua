@@ -319,6 +319,43 @@ function M.build_unl(tree_buf, levels, tree_lnum)
 end
 
 -- ==============================================================================
+-- Fold expression
+-- ==============================================================================
+
+-- Compute a foldexpr value for the tree buffer.
+--
+-- This function must be public so Neovim can call it through the `v:lua`
+-- foldexpr string set on the tree window.  It mirrors the legacy
+-- `voom#TreeFoldexpr` from the original Vimscript plugin.
+--
+-- The tree uses a simple depth-based fold structure:
+--   - Line 1 (root node) opens a fold at depth 1 that contains all headings.
+--   - Each heading line opens a fold at depth equal to its heading level,
+--     which naturally nests children inside their parents.
+--
+-- Returns "0" when state is unavailable (e.g. during buffer construction
+-- before the outline has been registered).
+function M.tree_foldexpr(lnum)
+  -- The root line always opens a top-level fold.
+  if lnum == 1 then return ">1" end
+
+  -- For heading lines, look up the body buffer associated with the calling
+  -- tree buffer, then read its outline levels.
+  local tree_buf = vim.api.nvim_get_current_buf()
+  local body_buf = state.get_body(tree_buf)
+  if not body_buf then return "0" end
+
+  local outline = state.get_outline(body_buf)
+  if not outline then return "0" end
+
+  -- levels[] is 1-indexed; tree line k corresponds to levels[k-1].
+  local lev = outline.levels[lnum - 1]
+  if not lev then return "0" end
+
+  return ">" .. lev
+end
+
+-- ==============================================================================
 -- Tree navigation actions
 -- ==============================================================================
 --
@@ -938,6 +975,16 @@ function M.create(body_buf, mode_name)
   local tree_win = vim.api.nvim_get_current_win()
   vim.api.nvim_win_set_buf(tree_win, tree_buf)
   vim.api.nvim_win_set_option(tree_win, "winfixwidth", true)
+
+  -- Enable expression-based folding so the tree's fold structure mirrors the
+  -- heading hierarchy.  foldlevel=20 starts fully open; users collapse with
+  -- <Space> / C.  conceallevel=0 prevents third-party plugins from concealing
+  -- the | separator characters.
+  vim.wo[tree_win].foldmethod   = "expr"
+  vim.wo[tree_win].foldexpr     = "v:lua.require('voom.tree').tree_foldexpr(v:lnum)"
+  vim.wo[tree_win].foldlevel    = 20
+  vim.wo[tree_win].foldenable   = true
+  vim.wo[tree_win].conceallevel = 0
 
   -- Register state and wire up keymaps + autocommands.
   state.register(body_buf, tree_buf, mode_name, outline)

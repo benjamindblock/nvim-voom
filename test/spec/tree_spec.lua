@@ -921,4 +921,78 @@ T["tree.body_select"]["cursor in body content between headings selects preceding
   MiniTest.expect.equality(state.get_snLn(body), 2)
 end
 
+-- ==============================================================================
+-- tree_foldexpr
+-- ==============================================================================
+
+T["tree_foldexpr"] = MiniTest.new_set({
+  hooks = {
+    pre_case = function()
+      -- Register a minimal body/tree pair so tree_foldexpr can look up state.
+      -- We need a real buffer so nvim_get_current_buf() returns the tree buf.
+      local state = require("voom.state")
+      local outline = {
+        bnodes = { 1, 5, 10, 15 },
+        levels = { 1, 2, 3, 2 },
+        tlines = {},
+      }
+      local body_buf = vim.api.nvim_create_buf(false, true)
+      local tree_buf = vim.api.nvim_create_buf(false, true)
+      state.register(body_buf, tree_buf, "markdown", outline)
+      T["tree_foldexpr"]._body = body_buf
+      T["tree_foldexpr"]._tree = tree_buf
+      -- Make the tree buffer current so tree_foldexpr picks it up.
+      vim.api.nvim_set_current_buf(tree_buf)
+    end,
+    post_case = function()
+      local state = require("voom.state")
+      state.unregister(T["tree_foldexpr"]._body)
+      del_buf(T["tree_foldexpr"]._body)
+      del_buf(T["tree_foldexpr"]._tree)
+    end,
+  },
+})
+
+T["tree_foldexpr"]["line 1 (root) opens a top-level fold"] = function()
+  local tree = require("voom.tree")
+  MiniTest.expect.equality(tree.tree_foldexpr(1), ">1")
+end
+
+T["tree_foldexpr"]["line 2 (level-1 heading) opens fold at depth 1"] = function()
+  local tree = require("voom.tree")
+  -- levels[1] = 1
+  MiniTest.expect.equality(tree.tree_foldexpr(2), ">1")
+end
+
+T["tree_foldexpr"]["line 3 (level-2 heading) opens fold at depth 2"] = function()
+  local tree = require("voom.tree")
+  -- levels[2] = 2
+  MiniTest.expect.equality(tree.tree_foldexpr(3), ">2")
+end
+
+T["tree_foldexpr"]["line 4 (level-3 heading) opens fold at depth 3"] = function()
+  local tree = require("voom.tree")
+  -- levels[3] = 3
+  MiniTest.expect.equality(tree.tree_foldexpr(4), ">3")
+end
+
+T["tree_foldexpr"]["line 5 (level-2 heading) opens fold at depth 2"] = function()
+  local tree = require("voom.tree")
+  -- levels[4] = 2
+  MiniTest.expect.equality(tree.tree_foldexpr(5), ">2")
+end
+
+T["tree_foldexpr"]["returns '0' when no state is registered"] = function()
+  local state = require("voom.state")
+  local tree  = require("voom.tree")
+  -- Unregister so state is absent, then point to an unregistered tree buf.
+  local orphan = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_set_current_buf(orphan)
+  local result = tree.tree_foldexpr(2)
+  MiniTest.expect.equality(result, "0")
+  del_buf(orphan)
+  -- Restore the tree buf as current for post_case cleanup.
+  vim.api.nvim_set_current_buf(T["tree_foldexpr"]._tree)
+end
+
 return T
