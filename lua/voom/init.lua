@@ -23,7 +23,7 @@ local function ensure_log_buf()
   -- Create a named scratch buffer that will not prompt for saving on exit.
   log_buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_buf_set_name(log_buf, "*VOOM LOG*")
-  vim.api.nvim_buf_set_option(log_buf, "buftype",   "nofile")
+  vim.api.nvim_buf_set_option(log_buf, "buftype", "nofile")
   vim.api.nvim_buf_set_option(log_buf, "buflisted", false)
   return log_buf
 end
@@ -66,7 +66,9 @@ local function detect_mode(args)
     return args
   end
   local ft = vim.bo.filetype
-  if ft == "md" then return "markdown" end
+  if ft == "md" then
+    return "markdown"
+  end
   return ft
 end
 
@@ -97,13 +99,15 @@ end
 -- @param args  string  optional mode name passed from the user command
 function M.init(args)
   local state = require("voom.state")
-  local tree  = require("voom.tree")
+  local tree = require("voom.tree")
   local modes = require("voom.modes")
 
   local body_buf = vim.api.nvim_get_current_buf()
 
   -- If the current buffer is already a tree, do nothing.
-  if state.is_tree(body_buf) then return end
+  if state.is_tree(body_buf) then
+    return
+  end
 
   -- If this body already has a tree, focus it instead of creating another.
   local existing_tree = state.get_tree(body_buf)
@@ -124,10 +128,7 @@ function M.init(args)
   -- Validate the mode before attempting to create the tree so the user
   -- gets a clear error rather than a confusing Lua stack trace.
   if not modes.get(mode_name) then
-    vim.notify(
-      "VOoM: unsupported mode '" .. tostring(mode_name) .. "'",
-      vim.log.levels.ERROR
-    )
+    vim.notify("VOoM: unsupported mode '" .. tostring(mode_name) .. "'", vim.log.levels.ERROR)
     return
   end
 
@@ -140,14 +141,16 @@ end
 -- @param args  string  optional mode name (forwarded to init() when opening)
 function M.toggle(args)
   local state = require("voom.state")
-  local tree  = require("voom.tree")
+  local tree = require("voom.tree")
 
   local body_buf = vim.api.nvim_get_current_buf()
 
   -- If the current buffer is a tree, treat toggle as "close".
   if state.is_tree(body_buf) then
     local actual_body = state.get_body(body_buf)
-    if actual_body then tree.close(actual_body) end
+    if actual_body then
+      tree.close(actual_body)
+    end
     return
   end
 
@@ -191,9 +194,11 @@ function M.grep(args)
   local tree_mod = require("voom.tree")
 
   local body_buf = resolve_body_buf()
-  if not body_buf then return end
+  if not body_buf then
+    return
+  end
 
-  local outline  = state.get_outline(body_buf)
+  local outline = state.get_outline(body_buf)
   if not outline then
     vim.notify("VOoM: no outline data for this buffer", vim.log.levels.ERROR)
     return
@@ -208,11 +213,11 @@ function M.grep(args)
   local bnodes = outline.bnodes
   local entries = {}
 
-  -- Walk every heading (bnodes[i] → tree line i+1).  Read the tree line to
+  -- Walk every heading (bnodes[i] → tree line i).  Read the tree line to
   -- extract the display text, which is already stripped of markup syntax;
   -- this is cleaner than parsing the raw body line again.
   for i, bnode in ipairs(bnodes) do
-    local tree_lnum = i + 1
+    local tree_lnum = i
     local raw = vim.api.nvim_buf_get_lines(tree_buf, tree_lnum - 1, tree_lnum, false)[1] or ""
     -- heading_text_from_tree_line is module-private, replicate its logic here.
     local text = raw:match(".*· (.+)$") or ""
@@ -220,8 +225,8 @@ function M.grep(args)
     if text:match(args) then
       table.insert(entries, {
         bufnr = body_buf,
-        lnum  = bnode,
-        text  = text,
+        lnum = bnode,
+        text = text,
       })
     end
   end
@@ -245,7 +250,9 @@ function M.voominfo()
   local state = require("voom.state")
 
   local body_buf = resolve_body_buf()
-  if not body_buf then return end
+  if not body_buf then
+    return
+  end
 
   local entry = state.bodies[body_buf]
   if not entry then
@@ -253,8 +260,8 @@ function M.voominfo()
     return
   end
 
-  local tree_buf   = entry.tree
-  local snLn       = entry.snLn
+  local tree_buf = entry.tree
+  local snLn = entry.snLn
   local node_count = #entry.bnodes
 
   -- Read the heading text for the currently selected node.  Tree line 1 is

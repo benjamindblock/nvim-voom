@@ -174,7 +174,7 @@ T["tree.create"] = MiniTest.new_set({
     post_case = function()
       -- Close the tree (which also unregisters state), then delete the body.
       local state = require("voom.state")
-      local body  = T["tree.create"]._body_buf
+      local body = T["tree.create"]._body_buf
       if body and state.is_body(body) then
         require("voom.tree").close(body)
       end
@@ -184,9 +184,9 @@ T["tree.create"] = MiniTest.new_set({
 })
 
 T["tree.create"]["returns a valid buffer number"] = function()
-  local tree   = require("voom.tree")
-  local lines  = load_fixture("sample.md")
-  local body   = make_scratch_buf(lines, "sample.md")
+  local tree = require("voom.tree")
+  local lines = load_fixture("sample.md")
+  local body = make_scratch_buf(lines, "sample.md")
   T["tree.create"]._body_buf = body
 
   local tree_buf = tree.create(body, "markdown")
@@ -197,9 +197,9 @@ T["tree.create"]["returns a valid buffer number"] = function()
 end
 
 T["tree.create"]["tree buffer name ends with _VOOMbody_bufnr"] = function()
-  local tree  = require("voom.tree")
+  local tree = require("voom.tree")
   local lines = load_fixture("sample.md")
-  local body  = make_scratch_buf(lines, "sample.md")
+  local body = make_scratch_buf(lines, "sample.md")
   T["tree.create"]._body_buf = body
 
   local tree_buf = tree.create(body, "markdown")
@@ -210,22 +210,22 @@ T["tree.create"]["tree buffer name ends with _VOOMbody_bufnr"] = function()
 end
 
 T["tree.create"]["tree buffer is nofile and non-modifiable"] = function()
-  local tree  = require("voom.tree")
+  local tree = require("voom.tree")
   local lines = load_fixture("sample.md")
-  local body  = make_scratch_buf(lines, "sample.md")
+  local body = make_scratch_buf(lines, "sample.md")
   T["tree.create"]._body_buf = body
 
   local tree_buf = tree.create(body, "markdown")
   T["tree.create"]._tree_buf = tree_buf
 
-  MiniTest.expect.equality(vim.api.nvim_buf_get_option(tree_buf, "buftype"),    "nofile")
+  MiniTest.expect.equality(vim.api.nvim_buf_get_option(tree_buf, "buftype"), "nofile")
   MiniTest.expect.equality(vim.api.nvim_buf_get_option(tree_buf, "modifiable"), false)
 end
 
 T["tree.create"]["tree line 1 is the first heading"] = function()
-  local tree  = require("voom.tree")
+  local tree = require("voom.tree")
   local lines = load_fixture("sample.md")
-  local body  = make_scratch_buf(lines, "sample.md")
+  local body = make_scratch_buf(lines, "sample.md")
   T["tree.create"]._body_buf = body
 
   local tree_buf = tree.create(body, "markdown")
@@ -241,11 +241,33 @@ T["tree.create"]["tree line 1 is the first heading"] = function()
   MiniTest.expect.equality(tree_lines[2], "   · Installation")
 end
 
+T["tree.create"]["renders exact tree lines for mixed heading styles and deep nesting"] = function()
+  local tree = require("voom.tree")
+  local lines = load_fixture("edge_cases.md")
+  local body = make_scratch_buf(lines, "edge_cases.md")
+  T["tree.create"]._body_buf = body
+
+  local tree_buf = tree.create(body, "markdown")
+  T["tree.create"]._tree_buf = tree_buf
+
+  local tree_lines = vim.api.nvim_buf_get_lines(tree_buf, 0, -1, false)
+  MiniTest.expect.equality(tree_lines, {
+    " · Root",
+    "   · Child One",
+    "     · Grandchild",
+    "       · Great Grandchild",
+    "   · Empty Child",
+    " · Setext Parent",
+    "   · Setext Child",
+    " · Tail",
+  })
+end
+
 T["tree.create"]["registers body and tree in state"] = function()
-  local tree  = require("voom.tree")
+  local tree = require("voom.tree")
   local state = require("voom.state")
   local lines = load_fixture("sample.md")
-  local body  = make_scratch_buf(lines, "sample.md")
+  local body = make_scratch_buf(lines, "sample.md")
   T["tree.create"]._body_buf = body
 
   local tree_buf = tree.create(body, "markdown")
@@ -258,9 +280,9 @@ T["tree.create"]["registers body and tree in state"] = function()
 end
 
 T["tree.create"]["initializes folds on first open"] = function()
-  local tree  = require("voom.tree")
+  local tree = require("voom.tree")
   local lines = load_fixture("sample.md")
-  local body  = make_scratch_buf(lines, "sample.md")
+  local body = make_scratch_buf(lines, "sample.md")
   T["tree.create"]._body_buf = body
 
   local tree_buf = tree.create(body, "markdown")
@@ -276,9 +298,9 @@ T["tree.create"]["initializes folds on first open"] = function()
 end
 
 T["tree.create"]["sets winbar with filename and heading count"] = function()
-  local tree  = require("voom.tree")
+  local tree = require("voom.tree")
   local lines = load_fixture("sample.md")
-  local body  = make_scratch_buf(lines, "sample.md")
+  local body = make_scratch_buf(lines, "sample.md")
   T["tree.create"]._body_buf = body
 
   local tree_buf = tree.create(body, "markdown")
@@ -295,9 +317,9 @@ T["tree.create"]["sets winbar with filename and heading count"] = function()
 end
 
 T["tree.create"]["winbar updates heading count after tree.update"] = function()
-  local tree  = require("voom.tree")
+  local tree = require("voom.tree")
   local lines = load_fixture("sample.md")
-  local body  = make_scratch_buf(lines, "sample.md")
+  local body = make_scratch_buf(lines, "sample.md")
   T["tree.create"]._body_buf = body
 
   local tree_buf = tree.create(body, "markdown")
@@ -327,7 +349,7 @@ T["tree.fold_actions"] = MiniTest.new_set({
     end,
     post_case = function()
       local state = require("voom.state")
-      local body  = T["tree.fold_actions"]._body_buf
+      local body = T["tree.fold_actions"]._body_buf
       if body and state.is_body(body) then
         require("voom.tree").close(body)
       end
@@ -338,8 +360,8 @@ T["tree.fold_actions"] = MiniTest.new_set({
 
 T["tree.fold_actions"]["tree_toggle_fold closes and reopens current node"] = function()
   local tree_mod = require("voom.tree")
-  local lines    = load_fixture("sample.md")
-  local body     = make_scratch_buf(lines, "sample.md")
+  local lines = load_fixture("sample.md")
+  local body = make_scratch_buf(lines, "sample.md")
   T["tree.fold_actions"]._body_buf = body
 
   local tree_buf = tree_mod.create(body, "markdown")
@@ -363,8 +385,8 @@ end
 
 T["tree.fold_actions"]["tree_contract_siblings closes sibling nodes that have children"] = function()
   local tree_mod = require("voom.tree")
-  local lines    = load_fixture("sample.md")
-  local body     = make_scratch_buf(lines, "sample.md")
+  local lines = load_fixture("sample.md")
+  local body = make_scratch_buf(lines, "sample.md")
   T["tree.fold_actions"]._body_buf = body
 
   local tree_buf = tree_mod.create(body, "markdown")
@@ -388,8 +410,8 @@ end
 
 T["tree.fold_actions"]["tree_expand_siblings opens closed sibling nodes"] = function()
   local tree_mod = require("voom.tree")
-  local lines    = load_fixture("sample.md")
-  local body     = make_scratch_buf(lines, "sample.md")
+  local lines = load_fixture("sample.md")
+  local body = make_scratch_buf(lines, "sample.md")
   T["tree.fold_actions"]._body_buf = body
 
   local tree_buf = tree_mod.create(body, "markdown")
@@ -422,8 +444,8 @@ end
 
 T["tree.fold_actions"]["tree_navigate_right opens closed node before descending"] = function()
   local tree_mod = require("voom.tree")
-  local lines    = load_fixture("sample.md")
-  local body     = make_scratch_buf(lines, "sample.md")
+  local lines = load_fixture("sample.md")
+  local body = make_scratch_buf(lines, "sample.md")
   T["tree.fold_actions"]._body_buf = body
 
   local tree_buf = tree_mod.create(body, "markdown")
@@ -523,7 +545,7 @@ T["tree.navigate_to_body"] = MiniTest.new_set({
     end,
     post_case = function()
       local state = require("voom.state")
-      local body  = T["tree.navigate_to_body"]._body_buf
+      local body = T["tree.navigate_to_body"]._body_buf
       if body and state.is_body(body) then
         require("voom.tree").close(body)
       end
@@ -534,8 +556,8 @@ T["tree.navigate_to_body"] = MiniTest.new_set({
 
 T["tree.navigate_to_body"]["tree line 1 navigates to body line 1"] = function()
   local tree_mod = require("voom.tree")
-  local lines    = load_fixture("sample.md")
-  local body     = make_scratch_buf(lines, "sample.md")
+  local lines = load_fixture("sample.md")
+  local body = make_scratch_buf(lines, "sample.md")
   T["tree.navigate_to_body"]._body_buf = body
 
   -- The body buffer must be visible in a window for navigate_to_body to work.
@@ -562,9 +584,9 @@ end
 
 T["tree.navigate_to_body"]["tree line 2 navigates to second heading bnode"] = function()
   local tree_mod = require("voom.tree")
-  local state    = require("voom.state")
-  local lines    = load_fixture("sample.md")
-  local body     = make_scratch_buf(lines, "sample.md")
+  local state = require("voom.state")
+  local lines = load_fixture("sample.md")
+  local body = make_scratch_buf(lines, "sample.md")
   T["tree.navigate_to_body"]._body_buf = body
 
   vim.api.nvim_set_current_buf(body)
@@ -589,9 +611,9 @@ end
 
 T["tree.navigate_to_body"]["tree line 3 navigates to third heading bnode"] = function()
   local tree_mod = require("voom.tree")
-  local state    = require("voom.state")
-  local lines    = load_fixture("sample.md")
-  local body     = make_scratch_buf(lines, "sample.md")
+  local state = require("voom.state")
+  local lines = load_fixture("sample.md")
+  local body = make_scratch_buf(lines, "sample.md")
   T["tree.navigate_to_body"]._body_buf = body
 
   vim.api.nvim_set_current_buf(body)
@@ -622,9 +644,9 @@ T["tree.close"] = MiniTest.new_set()
 
 T["tree.close"]["deletes the tree buffer and unregisters state"] = function()
   local tree_mod = require("voom.tree")
-  local state    = require("voom.state")
-  local lines    = load_fixture("sample.md")
-  local body     = make_scratch_buf(lines, "sample.md")
+  local state = require("voom.state")
+  local lines = load_fixture("sample.md")
+  local body = make_scratch_buf(lines, "sample.md")
 
   local tree_buf = tree_mod.create(body, "markdown")
 
@@ -647,10 +669,12 @@ end
 
 T["tree.update"] = MiniTest.new_set({
   hooks = {
-    pre_case  = function() T["tree.update"]._body_buf = nil end,
+    pre_case = function()
+      T["tree.update"]._body_buf = nil
+    end,
     post_case = function()
       local state = require("voom.state")
-      local body  = T["tree.update"]._body_buf
+      local body = T["tree.update"]._body_buf
       if body and state.is_body(body) then
         require("voom.tree").close(body)
       end
@@ -685,6 +709,28 @@ T["tree.update"]["rebuilds tree lines after body content changes"] = function()
   MiniTest.expect.equality(after[2], "   · Sub Heading")
 end
 
+T["tree.update"]["BufWritePost refreshes tree lines and changedtick"] = function()
+  local tree_mod = require("voom.tree")
+  local state = require("voom.state")
+
+  local body = make_scratch_buf({ "# Alpha", "", "## Beta" }, "update_autocmd.md")
+  T["tree.update"]._body_buf = body
+
+  local tree_buf = tree_mod.create(body, "markdown")
+  local before_tick = state.get_changedtick(body)
+
+  vim.api.nvim_buf_set_lines(body, -1, -1, false, { "", "## Gamma" })
+
+  MiniTest.expect.no_error(function()
+    vim.api.nvim_exec_autocmds("BufWritePost", { buffer = body })
+  end)
+
+  local tree_lines = vim.api.nvim_buf_get_lines(tree_buf, 0, -1, false)
+  MiniTest.expect.equality(tree_lines[#tree_lines], "   · Gamma")
+  MiniTest.expect.equality(state.get_changedtick(body), vim.api.nvim_buf_get_changedtick(body))
+  MiniTest.expect.equality(state.get_changedtick(body) ~= before_tick, true)
+end
+
 -- ==============================================================================
 -- tree.lua: follow_cursor
 -- ==============================================================================
@@ -697,7 +743,7 @@ T["tree.follow_cursor"] = MiniTest.new_set({
     end,
     post_case = function()
       local state = require("voom.state")
-      local body  = T["tree.follow_cursor"]._body_buf
+      local body = T["tree.follow_cursor"]._body_buf
       if body and state.is_body(body) then
         require("voom.tree").close(body)
       end
@@ -708,8 +754,8 @@ T["tree.follow_cursor"] = MiniTest.new_set({
 
 T["tree.follow_cursor"]["focus stays in tree after scrolling body"] = function()
   local tree_mod = require("voom.tree")
-  local lines    = load_fixture("sample.md")
-  local body     = make_scratch_buf(lines, "sample.md")
+  local lines = load_fixture("sample.md")
+  local body = make_scratch_buf(lines, "sample.md")
   T["tree.follow_cursor"]._body_buf = body
 
   vim.api.nvim_set_current_buf(body)
@@ -734,8 +780,8 @@ end
 
 T["tree.follow_cursor"]["line 1 scrolls body to first heading"] = function()
   local tree_mod = require("voom.tree")
-  local lines    = load_fixture("sample.md")
-  local body     = make_scratch_buf(lines, "sample.md")
+  local lines = load_fixture("sample.md")
+  local body = make_scratch_buf(lines, "sample.md")
   T["tree.follow_cursor"]._body_buf = body
 
   vim.api.nvim_set_current_buf(body)
@@ -758,9 +804,9 @@ end
 
 T["tree.follow_cursor"]["heading line scrolls body to correct bnode"] = function()
   local tree_mod = require("voom.tree")
-  local state    = require("voom.state")
-  local lines    = load_fixture("sample.md")
-  local body     = make_scratch_buf(lines, "sample.md")
+  local state = require("voom.state")
+  local lines = load_fixture("sample.md")
+  local body = make_scratch_buf(lines, "sample.md")
   T["tree.follow_cursor"]._body_buf = body
 
   vim.api.nvim_set_current_buf(body)
@@ -786,9 +832,9 @@ end
 
 T["tree.follow_cursor"]["updates snLn in state"] = function()
   local tree_mod = require("voom.tree")
-  local state    = require("voom.state")
-  local lines    = load_fixture("sample.md")
-  local body     = make_scratch_buf(lines, "sample.md")
+  local state = require("voom.state")
+  local lines = load_fixture("sample.md")
+  local body = make_scratch_buf(lines, "sample.md")
   T["tree.follow_cursor"]._body_buf = body
 
   vim.api.nvim_set_current_buf(body)
@@ -802,7 +848,7 @@ end
 
 T["tree.follow_cursor"]["unsaved body edits refresh stale tree before follow"] = function()
   local tree_mod = require("voom.tree")
-  local state    = require("voom.state")
+  local state = require("voom.state")
   local lines = {
     "# Root",
     "",
@@ -846,8 +892,8 @@ end
 
 T["tree.follow_cursor"]["stale bnode beyond EOF is clamped"] = function()
   local tree_mod = require("voom.tree")
-  local state    = require("voom.state")
-  local body     = make_scratch_buf({ "# One" }, "follow_clamp.md")
+  local state = require("voom.state")
+  local body = make_scratch_buf({ "# One" }, "follow_clamp.md")
   T["tree.follow_cursor"]._body_buf = body
 
   vim.api.nvim_set_current_buf(body)
@@ -885,7 +931,7 @@ T["tab keymap"] = MiniTest.new_set({
     end,
     post_case = function()
       local state = require("voom.state")
-      local body  = T["tab keymap"]._body_buf
+      local body = T["tab keymap"]._body_buf
       if body and state.is_body(body) then
         require("voom.tree").close(body)
       end
@@ -896,9 +942,9 @@ T["tab keymap"] = MiniTest.new_set({
 
 T["tab keymap"]["moves focus to body at the selected heading"] = function()
   local tree_mod = require("voom.tree")
-  local state    = require("voom.state")
-  local lines    = load_fixture("sample.md")
-  local body     = make_scratch_buf(lines, "sample.md")
+  local state = require("voom.state")
+  local lines = load_fixture("sample.md")
+  local body = make_scratch_buf(lines, "sample.md")
   T["tab keymap"]._body_buf = body
 
   vim.api.nvim_set_current_buf(body)
@@ -910,8 +956,12 @@ T["tab keymap"]["moves focus to body at the selected heading"] = function()
   local body_win
   for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
     local wb = vim.api.nvim_win_get_buf(win)
-    if wb == tree_buf then tree_win = win end
-    if wb == body      then body_win = win end
+    if wb == tree_buf then
+      tree_win = win
+    end
+    if wb == body then
+      body_win = win
+    end
   end
   vim.api.nvim_set_current_win(tree_win)
   vim.api.nvim_win_set_cursor(tree_win, { 3, 0 })
@@ -925,7 +975,7 @@ T["tab keymap"]["moves focus to body at the selected heading"] = function()
 
   -- Body cursor should be at bnodes[3] (third heading = "### Requirements" = line 10).
   local expected = state.get_outline(body).bnodes[3]
-  local cursor   = vim.api.nvim_win_get_cursor(body_win)
+  local cursor = vim.api.nvim_win_get_cursor(body_win)
   MiniTest.expect.equality(cursor[1], expected)
 end
 
@@ -941,7 +991,7 @@ T["tree.undo_redo"] = MiniTest.new_set({
     end,
     post_case = function()
       local state = require("voom.state")
-      local body  = T["tree.undo_redo"]._body_buf
+      local body = T["tree.undo_redo"]._body_buf
       if body and state.is_body(body) then
         require("voom.tree").close(body)
       end
@@ -953,10 +1003,18 @@ T["tree.undo_redo"] = MiniTest.new_set({
 T["tree.undo_redo"]["undoes move_up one action at a time and preserves tree cursor line"] = function()
   local tree_mod = require("voom.tree")
   local lines = {
-    "# One", "", "one",
-    "# Two", "", "two",
-    "# Three", "", "three",
-    "# Four", "", "four",
+    "# One",
+    "",
+    "one",
+    "# Two",
+    "",
+    "two",
+    "# Three",
+    "",
+    "three",
+    "# Four",
+    "",
+    "four",
   }
   local body = make_scratch_buf(lines, "undo_move.md")
   T["tree.undo_redo"]._body_buf = body
@@ -971,18 +1029,12 @@ T["tree.undo_redo"]["undoes move_up one action at a time and preserves tree curs
   vim.api.nvim_win_set_cursor(tree_win, { 3, 0 })
   press("^^")
   press("^^")
-  MiniTest.expect.equality(
-    top_heading_lines(body),
-    { "# Three", "# One", "# Two", "# Four" }
-  )
+  MiniTest.expect.equality(top_heading_lines(body), { "# Three", "# One", "# Two", "# Four" })
   MiniTest.expect.equality(vim.api.nvim_win_get_cursor(tree_win)[1], 1)
 
   -- First undo should revert only one move.
   tree_mod.tree_undo(tree_buf)
-  MiniTest.expect.equality(
-    top_heading_lines(body),
-    { "# One", "# Three", "# Two", "# Four" }
-  )
+  MiniTest.expect.equality(top_heading_lines(body), { "# One", "# Three", "# Two", "# Four" })
   -- Cursor should not jump to top/root.
   MiniTest.expect.equality(vim.api.nvim_win_get_cursor(tree_win)[1], 2)
   MiniTest.expect.equality(vim.api.nvim_win_get_cursor(tree_win)[1] ~= 1, true)
@@ -990,26 +1042,26 @@ T["tree.undo_redo"]["undoes move_up one action at a time and preserves tree curs
 
   -- Second undo returns to original.
   tree_mod.tree_undo(tree_buf)
-  MiniTest.expect.equality(
-    top_heading_lines(body),
-    { "# One", "# Two", "# Three", "# Four" }
-  )
+  MiniTest.expect.equality(top_heading_lines(body), { "# One", "# Two", "# Three", "# Four" })
 
   -- Redo reapplies one step.
   tree_mod.tree_redo(tree_buf)
-  MiniTest.expect.equality(
-    top_heading_lines(body),
-    { "# One", "# Three", "# Two", "# Four" }
-  )
+  MiniTest.expect.equality(top_heading_lines(body), { "# One", "# Three", "# Two", "# Four" })
   MiniTest.expect.equality(vim.api.nvim_get_current_win(), tree_win)
 end
 
 T["tree.undo_redo"]["undoes demote from tree pane"] = function()
   local tree_mod = require("voom.tree")
   local lines = {
-    "# One", "", "one",
-    "# Two", "", "two",
-    "# Three", "", "three",
+    "# One",
+    "",
+    "one",
+    "# Two",
+    "",
+    "two",
+    "# Three",
+    "",
+    "three",
   }
   local body = make_scratch_buf(lines, "undo_demote.md")
   T["tree.undo_redo"]._body_buf = body
@@ -1034,8 +1086,12 @@ end
 T["tree.undo_redo"]["undoes direct body edits from tree pane"] = function()
   local tree_mod = require("voom.tree")
   local lines = {
-    "# One", "", "one",
-    "# Two", "", "two",
+    "# One",
+    "",
+    "one",
+    "# Two",
+    "",
+    "two",
   }
   local body = make_scratch_buf(lines, "undo_body_edit.md")
   T["tree.undo_redo"]._body_buf = body
@@ -1059,8 +1115,12 @@ end
 T["tree.undo_redo"]["no-error on unavailable redo"] = function()
   local tree_mod = require("voom.tree")
   local lines = {
-    "# One", "", "one",
-    "# Two", "", "two",
+    "# One",
+    "",
+    "one",
+    "# Two",
+    "",
+    "two",
   }
   local body = make_scratch_buf(lines, "redo_unavailable.md")
   T["tree.undo_redo"]._body_buf = body
@@ -1082,9 +1142,9 @@ end
 
 T["tree.undo_redo"]["display and editing remain siblings after << then >> on Display"] = function()
   local tree_mod = require("voom.tree")
-  local state    = require("voom.state")
-  local lines    = load_fixture("readme_outline.md")
-  local body     = make_scratch_buf(lines, "readme_outline.md")
+  local state = require("voom.state")
+  local lines = load_fixture("readme_outline.md")
+  local body = make_scratch_buf(lines, "readme_outline.md")
   T["tree.undo_redo"]._body_buf = body
 
   vim.api.nvim_set_current_buf(body)
@@ -1123,9 +1183,9 @@ end
 
 T["tree.undo_redo"]["move_up keeps Keymaps - body pane as sibling of Tree pane"] = function()
   local tree_mod = require("voom.tree")
-  local state    = require("voom.state")
-  local lines    = load_fixture("readme_outline.md")
-  local body     = make_scratch_buf(lines, "readme_outline.md")
+  local state = require("voom.state")
+  local lines = load_fixture("readme_outline.md")
+  local body = make_scratch_buf(lines, "readme_outline.md")
   T["tree.undo_redo"]._body_buf = body
 
   vim.api.nvim_set_current_buf(body)
@@ -1154,9 +1214,9 @@ end
 
 T["tree.undo_redo"]["move_down keeps Tree pane sibling between Keymaps tree/body sections"] = function()
   local tree_mod = require("voom.tree")
-  local state    = require("voom.state")
-  local lines    = load_fixture("readme_outline.md")
-  local body     = make_scratch_buf(lines, "readme_outline.md")
+  local state = require("voom.state")
+  local lines = load_fixture("readme_outline.md")
+  local body = make_scratch_buf(lines, "readme_outline.md")
   T["tree.undo_redo"]._body_buf = body
 
   vim.api.nvim_set_current_buf(body)
@@ -1369,9 +1429,9 @@ T["tree.build_unl"] = MiniTest.new_set({
 
 T["tree.build_unl"]["level-1 node returns just its heading"] = function()
   local tree_mod = require("voom.tree")
-  local state    = require("voom.state")
-  local lines    = load_fixture("sample.md")
-  local body     = make_scratch_buf(lines, "sample.md")
+  local state = require("voom.state")
+  local lines = load_fixture("sample.md")
+  local body = make_scratch_buf(lines, "sample.md")
   T["tree.build_unl"]._body_buf = body
 
   local tree_buf = tree_mod.create(body, "markdown")
@@ -1385,9 +1445,9 @@ end
 
 T["tree.build_unl"]["nested node returns full path"] = function()
   local tree_mod = require("voom.tree")
-  local state    = require("voom.state")
-  local lines    = load_fixture("sample.md")
-  local body     = make_scratch_buf(lines, "sample.md")
+  local state = require("voom.state")
+  local lines = load_fixture("sample.md")
+  local body = make_scratch_buf(lines, "sample.md")
   T["tree.build_unl"]._body_buf = body
 
   local tree_buf = tree_mod.create(body, "markdown")
@@ -1423,7 +1483,7 @@ T["tree.body_select"] = MiniTest.new_set({
 
 T["tree.body_select"]["cursor on body line before first heading selects first heading (line 1)"] = function()
   local tree_mod = require("voom.tree")
-  local state    = require("voom.state")
+  local state = require("voom.state")
 
   -- A buffer where the first heading is not on line 1.
   local lines = {
@@ -1442,7 +1502,10 @@ T["tree.body_select"]["cursor on body line before first heading selects first he
   -- Place cursor on the preamble (before first heading).
   local body_win
   for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-    if vim.api.nvim_win_get_buf(win) == body then body_win = win break end
+    if vim.api.nvim_win_get_buf(win) == body then
+      body_win = win
+      break
+    end
   end
   vim.api.nvim_win_set_cursor(body_win, { 1, 0 })
   vim.api.nvim_set_current_win(body_win)
@@ -1457,9 +1520,9 @@ end
 
 T["tree.body_select"]["cursor on heading line selects that heading's tree node"] = function()
   local tree_mod = require("voom.tree")
-  local state    = require("voom.state")
-  local lines    = load_fixture("sample.md")
-  local body     = make_scratch_buf(lines, "sample.md")
+  local state = require("voom.state")
+  local lines = load_fixture("sample.md")
+  local body = make_scratch_buf(lines, "sample.md")
   T["tree.body_select"]._body_buf = body
 
   vim.api.nvim_set_current_buf(body)
@@ -1469,7 +1532,10 @@ T["tree.body_select"]["cursor on heading line selects that heading's tree node"]
   -- sample.md line 1 is "# Project Overview" → bnodes[1] = 1 → tree line 1.
   local body_win
   for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-    if vim.api.nvim_win_get_buf(win) == body then body_win = win break end
+    if vim.api.nvim_win_get_buf(win) == body then
+      body_win = win
+      break
+    end
   end
   vim.api.nvim_win_set_cursor(body_win, { 1, 0 })
   vim.api.nvim_set_current_win(body_win)
@@ -1481,9 +1547,9 @@ end
 
 T["tree.body_select"]["cursor in body content between headings selects preceding heading"] = function()
   local tree_mod = require("voom.tree")
-  local state    = require("voom.state")
-  local lines    = load_fixture("sample.md")
-  local body     = make_scratch_buf(lines, "sample.md")
+  local state = require("voom.state")
+  local lines = load_fixture("sample.md")
+  local body = make_scratch_buf(lines, "sample.md")
   T["tree.body_select"]._body_buf = body
 
   vim.api.nvim_set_current_buf(body)
@@ -1494,7 +1560,10 @@ T["tree.body_select"]["cursor in body content between headings selects preceding
   -- The preceding heading is still the first one → tree line 1.
   local body_win
   for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-    if vim.api.nvim_win_get_buf(win) == body then body_win = win break end
+    if vim.api.nvim_win_get_buf(win) == body then
+      body_win = win
+      break
+    end
   end
   vim.api.nvim_win_set_cursor(body_win, { 3, 0 })
   vim.api.nvim_set_current_win(body_win)
@@ -1569,7 +1638,7 @@ end
 
 T["tree_foldexpr"]["returns '0' when no state is registered"] = function()
   local state = require("voom.state")
-  local tree  = require("voom.tree")
+  local tree = require("voom.tree")
   -- Unregister so state is absent, then point to an unregistered tree buf.
   local orphan = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_set_current_buf(orphan)

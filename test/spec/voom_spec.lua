@@ -1,6 +1,42 @@
 local T = MiniTest.new_set()
 
 -- ==============================================================================
+-- Helpers
+-- ==============================================================================
+
+local function make_scratch_buf(lines, name)
+  local buf = vim.api.nvim_create_buf(false, true)
+  if name then
+    vim.api.nvim_buf_set_name(buf, name)
+  end
+  if lines then
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+  end
+  return buf
+end
+
+local function del_buf(buf)
+  if buf and vim.api.nvim_buf_is_valid(buf) then
+    vim.api.nvim_buf_delete(buf, { force = true })
+  end
+end
+
+local function with_captured_notify(fn)
+  local calls = {}
+  local orig = vim.notify
+  vim.notify = function(msg, level, opts)
+    table.insert(calls, { msg = msg, level = level, opts = opts })
+  end
+
+  local ok, err = pcall(fn, calls)
+  vim.notify = orig
+  if not ok then
+    error(err)
+  end
+  return calls
+end
+
+-- ==============================================================================
 -- Module loading
 -- ==============================================================================
 
@@ -39,7 +75,9 @@ T["complete"]["empty arglead returns all modes"] = function()
   -- "markdown" must be present.
   local has_markdown = false
   for _, v in ipairs(result) do
-    if v == "markdown" then has_markdown = true end
+    if v == "markdown" then
+      has_markdown = true
+    end
   end
   MiniTest.expect.equality(has_markdown, true)
 end
@@ -68,7 +106,7 @@ T["init"] = MiniTest.new_set({
     end,
     post_case = function()
       local state = require("voom.state")
-      local body  = T["init"]._body_buf
+      local body = T["init"]._body_buf
       if body and state.is_body(body) then
         require("voom.tree").close(body)
       end
@@ -80,7 +118,7 @@ T["init"] = MiniTest.new_set({
 })
 
 T["init"]["creates a tree window for a markdown buffer"] = function()
-  local voom  = require("voom")
+  local voom = require("voom")
   local state = require("voom.state")
 
   local body = vim.api.nvim_create_buf(false, true)
@@ -101,8 +139,8 @@ end
 T["toggle"] = MiniTest.new_set()
 
 T["toggle"]["closes tree when body already has one"] = function()
-  local voom     = require("voom")
-  local state    = require("voom.state")
+  local voom = require("voom")
+  local state = require("voom.state")
   local tree_mod = require("voom.tree")
 
   local body = vim.api.nvim_create_buf(false, true)
@@ -128,7 +166,7 @@ T["toggle"]["closes tree when body already has one"] = function()
 end
 
 T["toggle"]["opens tree when body has none"] = function()
-  local voom  = require("voom")
+  local voom = require("voom")
   local state = require("voom.state")
 
   local body = vim.api.nvim_create_buf(false, true)
@@ -146,6 +184,148 @@ T["toggle"]["opens tree when body has none"] = function()
   if vim.api.nvim_buf_is_valid(body) then
     vim.api.nvim_buf_delete(body, { force = true })
   end
+end
+
+-- ==============================================================================
+-- grep()
+-- ==============================================================================
+
+T["grep"] = MiniTest.new_set({
+  hooks = {
+    pre_case = function()
+      T["grep"]._body_buf = nil
+    end,
+    post_case = function()
+      local state = require("voom.state")
+      local body = T["grep"]._body_buf
+      if body and state.is_body(body) then
+        require("voom.tree").close(body)
+      end
+      del_buf(body)
+      vim.fn.setqflist({}, "r")
+    end,
+  },
+})
+
+T["grep"]["populates quickfix with matching headings and body lines"] = function()
+  local voom = require("voom")
+  local tree = require("voom.tree")
+
+  local body = make_scratch_buf({
+    "# Alpha",
+    "",
+    "## Beta",
+    "",
+    "# Gamma",
+  }, "grep_matches.md")
+  T["grep"]._body_buf = body
+
+  vim.api.nvim_set_current_buf(body)
+  local tree_buf = tree.create(body, "markdown")
+  vim.api.nvim_set_current_buf(tree_buf)
+
+  local notifications = with_captured_notify(function()
+    voom.grep("a")
+  end)
+
+  local qf = vim.fn.getqflist()
+  MiniTest.expect.equality(#notifications, 0)
+  MiniTest.expect.equality(#qf, 3)
+  MiniTest.expect.equality(qf[1].lnum, 1)
+  MiniTest.expect.equality(qf[1].text, "Alpha")
+  MiniTest.expect.equality(qf[2].lnum, 3)
+  MiniTest.expect.equality(qf[2].text, "Beta")
+  MiniTest.expect.equality(qf[3].lnum, 5)
+  MiniTest.expect.equality(qf[3].text, "Gamma")
+end
+
+T["grep"]["warns on no matches and leaves quickfix empty"] = function()
+  local voom = require("voom")
+  local tree = require("voom.tree")
+
+  local body = make_scratch_buf({
+    "# Alpha",
+    "",
+    "## Beta",
+  }, "grep_nomatch.md")
+  T["grep"]._body_buf = body
+
+  vim.api.nvim_set_current_buf(body)
+  tree.create(body, "markdown")
+
+  local notifications = with_captured_notify(function()
+    voom.grep("Z+")
+  end)
+
+  local qf = vim.fn.getqflist()
+  MiniTest.expect.equality(#qf, 0)
+  MiniTest.expect.equality(#notifications, 1)
+  MiniTest.expect.equality(notifications[1].level, vim.log.levels.WARN)
+  MiniTest.expect.equality(notifications[1].msg, "VOoM grep: no headings matched 'Z+'")
+end
+
+-- ==============================================================================
+-- voominfo()
+-- ==============================================================================
+
+T["voominfo"] = MiniTest.new_set({
+  hooks = {
+    pre_case = function()
+      T["voominfo"]._body_buf = nil
+    end,
+    post_case = function()
+      local state = require("voom.state")
+      local body = T["voominfo"]._body_buf
+      if body and state.is_body(body) then
+        require("voom.tree").close(body)
+      end
+      del_buf(body)
+    end,
+  },
+})
+
+T["voominfo"]["reports mode node count selected line and heading text"] = function()
+  local voom = require("voom")
+  local tree = require("voom.tree")
+  local state = require("voom.state")
+
+  local body = make_scratch_buf({
+    "# Alpha",
+    "",
+    "## Beta",
+  }, "voominfo_ok.md")
+  T["voominfo"]._body_buf = body
+
+  vim.api.nvim_set_current_buf(body)
+  tree.create(body, "markdown")
+  state.set_snLn(body, 2)
+
+  local notifications = with_captured_notify(function()
+    voom.voominfo()
+  end)
+
+  MiniTest.expect.equality(#notifications, 1)
+  MiniTest.expect.equality(notifications[1].level, vim.log.levels.INFO)
+  MiniTest.expect.equality(notifications[1].msg:find("mode:%s+markdown") ~= nil, true)
+  MiniTest.expect.equality(notifications[1].msg:find("nodes:%s+2") ~= nil, true)
+  MiniTest.expect.equality(notifications[1].msg:find("snLn:%s+2") ~= nil, true)
+  MiniTest.expect.equality(notifications[1].msg:find("node:%s+Beta") ~= nil, true)
+end
+
+T["voominfo"]["errors when current buffer has no active VOoM tree"] = function()
+  local voom = require("voom")
+  local buf = make_scratch_buf({ "plain text" }, "voominfo_error.txt")
+
+  vim.api.nvim_set_current_buf(buf)
+  local notifications = with_captured_notify(function()
+    voom.voominfo()
+  end)
+
+  MiniTest.expect.equality(#notifications, 1)
+  MiniTest.expect.equality(notifications[1].level, vim.log.levels.ERROR)
+  MiniTest.expect.equality(notifications[1].msg, "VOoM: current buffer has no active VOoM tree")
+
+  del_buf(buf)
 end
 
 return T

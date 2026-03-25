@@ -17,7 +17,7 @@ local M = {}
 
 local modes = require("voom.modes")
 local state = require("voom.state")
-local tree  = require("voom.tree")
+local tree = require("voom.tree")
 
 -- ==============================================================================
 -- Module-level clipboard
@@ -26,7 +26,7 @@ local tree  = require("voom.tree")
 -- Stores the last cut/copied node content for paste operations.
 local clipboard = {
   body_lines = nil, -- {string,...} body lines of the copied/cut subtree
-  levels     = nil, -- {int,...} heading levels for paste-time adjustment
+  levels = nil, -- {int,...} heading levels for paste-time adjustment
 }
 
 -- ==============================================================================
@@ -70,8 +70,10 @@ end
 -- @param tlnum   int    tree line number
 -- @return int    number of subnodes (0 if leaf or last node)
 function M.count_subnodes(levels, tlnum)
-  local idx = tlnum  -- direct mapping: tree line k = levels[k]
-  if idx >= #levels then return 0 end
+  local idx = tlnum -- direct mapping: tree line k = levels[k]
+  if idx >= #levels then
+    return 0
+  end
 
   local cur_level = levels[idx]
   for i = idx + 1, #levels do
@@ -135,16 +137,22 @@ end
 -- No body modification — pure cursor positioning.
 function M.edit_node(tree_buf, op)
   local body_buf = state.get_body(tree_buf)
-  if not body_buf then return end
+  if not body_buf then
+    return
+  end
   local outline = state.get_outline(body_buf)
-  if not outline then return end
+  if not outline then
+    return
+  end
 
   local tree_win = find_win_for_buf(tree_buf)
-  if not tree_win then return end
+  if not tree_win then
+    return
+  end
 
   local tlnum = vim.api.nvim_win_get_cursor(tree_win)[1]
 
-  local idx = tlnum  -- tree line k = bnodes[k] / levels[k] (direct mapping)
+  local idx = tlnum -- tree line k = bnodes[k] / levels[k] (direct mapping)
   local body_lnum
 
   if op == "i" then
@@ -158,7 +166,9 @@ function M.edit_node(tree_buf, op)
     end
   end
 
-  if not body_lnum then return end
+  if not body_lnum then
+    return
+  end
 
   state.set_snLn(body_buf, tlnum)
 
@@ -182,18 +192,30 @@ end
 -- easy replacement.
 function M.insert_node(tree_buf, as_child)
   local body_buf = state.get_body(tree_buf)
-  if not body_buf then return end
+  if not body_buf then
+    return
+  end
   local outline = state.get_outline(body_buf)
-  if not outline then return end
+  if not outline then
+    return
+  end
   local outline_state = state.get_outline_state(body_buf)
-  if not outline_state then return end
+  if not outline_state then
+    return
+  end
   local entry = state.bodies[body_buf]
-  if not entry then return end
+  if not entry then
+    return
+  end
   local mode = modes.get(entry.mode)
-  if not mode then return end
+  if not mode then
+    return
+  end
 
   local tree_win = find_win_for_buf(tree_buf)
-  if not tree_win then return end
+  if not tree_win then
+    return
+  end
 
   local bnodes = outline.bnodes
   local levels = outline.levels
@@ -238,7 +260,8 @@ function M.insert_node(tree_buf, as_child)
   -- Get the preceding body line (for blank-separator logic in new_headline).
   local preceding_line = ""
   if bln_insert >= 1 then
-    preceding_line = vim.api.nvim_buf_get_lines(body_buf, bln_insert - 1, bln_insert, false)[1] or ""
+    preceding_line = vim.api.nvim_buf_get_lines(body_buf, bln_insert - 1, bln_insert, false)[1]
+      or ""
   end
 
   -- Generate the new heading lines.
@@ -295,12 +318,18 @@ end
 -- Copy the current node and its subtree to the plugin clipboard.
 function M.copy_node(tree_buf)
   local body_buf = state.get_body(tree_buf)
-  if not body_buf then return end
+  if not body_buf then
+    return
+  end
   local outline = state.get_outline(body_buf)
-  if not outline then return end
+  if not outline then
+    return
+  end
 
   local tree_win = find_win_for_buf(tree_buf)
-  if not tree_win then return end
+  if not tree_win then
+    return
+  end
 
   local tlnum = vim.api.nvim_win_get_cursor(tree_win)[1]
   local total_body = vim.api.nvim_buf_line_count(body_buf)
@@ -321,13 +350,19 @@ function M.copy_node(tree_buf)
 
   clipboard = {
     body_lines = body_lines,
-    levels     = copied_levels,
+    levels = copied_levels,
   }
 
   local node_count = #copied_levels
   vim.api.nvim_echo(
-    { { string.format("VOoM: copied %d node%s", node_count, node_count == 1 and "" or "s"), "Normal" } },
-    true, {}
+    {
+      {
+        string.format("VOoM: copied %d node%s", node_count, node_count == 1 and "" or "s"),
+        "Normal",
+      },
+    },
+    true,
+    {}
   )
 end
 
@@ -338,16 +373,24 @@ end
 -- Cut the current node and its subtree: copy to clipboard, then remove.
 function M.cut_node(tree_buf)
   local body_buf = state.get_body(tree_buf)
-  if not body_buf then return end
+  if not body_buf then
+    return
+  end
   local outline = state.get_outline(body_buf)
-  if not outline then return end
+  if not outline then
+    return
+  end
   local outline_state = state.get_outline_state(body_buf)
   local entry = state.bodies[body_buf]
-  if not entry then return end
+  if not entry then
+    return
+  end
   local mode = modes.get(entry.mode)
 
   local tree_win = find_win_for_buf(tree_buf)
-  if not tree_win then return end
+  if not tree_win then
+    return
+  end
 
   local tlnum = vim.api.nvim_win_get_cursor(tree_win)[1]
 
@@ -412,11 +455,18 @@ function M.cut_node(tree_buf)
     -- Only call if the cut boundary is valid.
     if blnum_cut > 0 and tlnum_cut >= 1 then
       mode.do_body_after_oop(
-        all_lines, new_bnodes, new_levels, outline_state,
-        "cut", 0,
-        0, 0,       -- blnum1, tlnum1 (not used for cut)
-        0, 0,       -- blnum2, tlnum2 (not used for cut)
-        blnum_cut, tlnum_cut
+        all_lines,
+        new_bnodes,
+        new_levels,
+        outline_state,
+        "cut",
+        0,
+        0,
+        0, -- blnum1, tlnum1 (not used for cut)
+        0,
+        0, -- blnum2, tlnum2 (not used for cut)
+        blnum_cut,
+        tlnum_cut
       )
     end
   end
@@ -427,12 +477,16 @@ function M.cut_node(tree_buf)
 
   -- Position cursor on the node above the deleted range.
   local target_tlnum = tlnum - 1
-  if target_tlnum < 1 then target_tlnum = 1 end
+  if target_tlnum < 1 then
+    target_tlnum = 1
+  end
   -- Clamp to valid range after refresh.
   local new_outline = state.get_outline(body_buf)
   if new_outline then
     local max_tlnum = #new_outline.bnodes
-    if target_tlnum > max_tlnum then target_tlnum = max_tlnum end
+    if target_tlnum > max_tlnum then
+      target_tlnum = max_tlnum
+    end
   end
 
   state.set_snLn(body_buf, target_tlnum)
@@ -442,8 +496,11 @@ function M.cut_node(tree_buf)
 
   local node_count = #cut_levels
   vim.api.nvim_echo(
-    { { string.format("VOoM: cut %d node%s", node_count, node_count == 1 and "" or "s"), "Normal" } },
-    true, {}
+    {
+      { string.format("VOoM: cut %d node%s", node_count, node_count == 1 and "" or "s"), "Normal" },
+    },
+    true,
+    {}
   )
 end
 
@@ -454,15 +511,25 @@ end
 -- Paste the clipboard content after the current node.
 function M.paste_node(tree_buf)
   local body_buf = state.get_body(tree_buf)
-  if not body_buf then return end
+  if not body_buf then
+    return
+  end
   local outline = state.get_outline(body_buf)
-  if not outline then return end
+  if not outline then
+    return
+  end
   local outline_state = state.get_outline_state(body_buf)
-  if not outline_state then return end
+  if not outline_state then
+    return
+  end
   local entry = state.bodies[body_buf]
-  if not entry then return end
+  if not entry then
+    return
+  end
   local mode = modes.get(entry.mode)
-  if not mode then return end
+  if not mode then
+    return
+  end
 
   if not clipboard.body_lines or #clipboard.body_lines == 0 then
     vim.api.nvim_echo({ { "VOoM (paste): clipboard is empty", "WarningMsg" } }, true, {})
@@ -470,7 +537,9 @@ function M.paste_node(tree_buf)
   end
 
   local tree_win = find_win_for_buf(tree_buf)
-  if not tree_win then return end
+  if not tree_win then
+    return
+  end
 
   local bnodes = outline.bnodes
   local levels = outline.levels
@@ -487,7 +556,8 @@ function M.paste_node(tree_buf)
   if #p_bnodes == 0 or p_bnodes[1] ~= 1 then
     vim.api.nvim_echo(
       { { "VOoM (paste): invalid clipboard — first line is not a headline", "ErrorMsg" } },
-      true, {}
+      true,
+      {}
     )
     return
   end
@@ -497,7 +567,8 @@ function M.paste_node(tree_buf)
     if lv < p_levels[1] then
       vim.api.nvim_echo(
         { { "VOoM (paste): invalid clipboard — root level error", "ErrorMsg" } },
-        true, {}
+        true,
+        {}
       )
       return
     end
@@ -566,7 +637,9 @@ function M.paste_node(tree_buf)
 
   -- Increment existing bnodes after the insertion point.
   local insert_idx = ln -- levels/bnodes index after which to insert
-  if ln == 1 then insert_idx = 0 end
+  if ln == 1 then
+    insert_idx = 0
+  end
   local p_delta = #p_blines
   for i = insert_idx + 1, #new_bnodes do
     new_bnodes[i] = new_bnodes[i] + p_delta
@@ -589,11 +662,18 @@ function M.paste_node(tree_buf)
   -- Call do_body_after_oop("paste") for format normalization.
   if mode.do_body_after_oop then
     mode.do_body_after_oop(
-      all_lines, new_bnodes, new_levels, outline_state,
-      "paste", lev_delta,
-      blnum1, tlnum1,
-      blnum2, tlnum2,
-      0, 0 -- blnum_cut, tlnum_cut not used for paste
+      all_lines,
+      new_bnodes,
+      new_levels,
+      outline_state,
+      "paste",
+      lev_delta,
+      blnum1,
+      tlnum1,
+      blnum2,
+      tlnum2,
+      0,
+      0 -- blnum_cut, tlnum_cut not used for paste
     )
   end
 
@@ -607,7 +687,9 @@ function M.paste_node(tree_buf)
   local new_outline = state.get_outline(body_buf)
   if new_outline then
     local max_tlnum = #new_outline.bnodes
-    if new_tlnum > max_tlnum then new_tlnum = max_tlnum end
+    if new_tlnum > max_tlnum then
+      new_tlnum = max_tlnum
+    end
   end
 
   state.set_snLn(body_buf, new_tlnum)
@@ -624,19 +706,29 @@ end
 -- sibling.
 function M.move_up(tree_buf)
   local body_buf = state.get_body(tree_buf)
-  if not body_buf then return end
+  if not body_buf then
+    return
+  end
   local outline = state.get_outline(body_buf)
-  if not outline then return end
+  if not outline then
+    return
+  end
   local outline_state = state.get_outline_state(body_buf)
   local entry = state.bodies[body_buf]
-  if not entry then return end
+  if not entry then
+    return
+  end
   local mode = modes.get(entry.mode)
 
   local tree_win = find_win_for_buf(tree_buf)
-  if not tree_win then return end
+  if not tree_win then
+    return
+  end
 
   local tlnum = vim.api.nvim_win_get_cursor(tree_win)[1]
-  if tlnum < 1 then return end  -- cursor is always >=1; guard against impossible state
+  if tlnum < 1 then
+    return
+  end -- cursor is always >=1; guard against impossible state
 
   local bnodes = outline.bnodes
   local levels = outline.levels
@@ -644,7 +736,9 @@ function M.move_up(tree_buf)
 
   -- Find previous sibling.
   local prev_sib = tree.find_prev_sibling_lnum(levels, tlnum)
-  if not prev_sib then return end
+  if not prev_sib then
+    return
+  end
 
   -- Tree line k = bnodes[k] / levels[k] (direct mapping; no root offset).
   local ln1 = tlnum -- bnodes index of first node being moved
@@ -727,15 +821,22 @@ function M.move_up(tree_buf)
   local new_ln1 = lnUp1
   local new_ln2 = lnUp1 + #n_levels - 1
   local blnum_cut = bln1 - 1 + #moved_lines -- body line at old position (post-insert)
-  local tlnum_cut = ln1 - 1 + #n_levels     -- bnodes index at old position
+  local tlnum_cut = ln1 - 1 + #n_levels -- bnodes index at old position
 
   if mode and mode.do_body_after_oop and outline_state then
     mode.do_body_after_oop(
-      all_lines, new_bnodes, new_levels, outline_state,
-      "up", lev_delta,
-      new_bln_show, new_ln1,
-      new_bln_show + #moved_lines - 1, new_ln2,
-      blnum_cut, tlnum_cut
+      all_lines,
+      new_bnodes,
+      new_levels,
+      outline_state,
+      "up",
+      lev_delta,
+      new_bln_show,
+      new_ln1,
+      new_bln_show + #moved_lines - 1,
+      new_ln2,
+      blnum_cut,
+      tlnum_cut
     )
   end
 
@@ -758,19 +859,29 @@ end
 -- Move the current node (and its subtree) down, swapping with the next sibling.
 function M.move_down(tree_buf)
   local body_buf = state.get_body(tree_buf)
-  if not body_buf then return end
+  if not body_buf then
+    return
+  end
   local outline = state.get_outline(body_buf)
-  if not outline then return end
+  if not outline then
+    return
+  end
   local outline_state = state.get_outline_state(body_buf)
   local entry = state.bodies[body_buf]
-  if not entry then return end
+  if not entry then
+    return
+  end
   local mode = modes.get(entry.mode)
 
   local tree_win = find_win_for_buf(tree_buf)
-  if not tree_win then return end
+  if not tree_win then
+    return
+  end
 
   local tlnum = vim.api.nvim_win_get_cursor(tree_win)[1]
-  if tlnum < 1 then return end  -- cursor is always >=1; guard against impossible state
+  if tlnum < 1 then
+    return
+  end -- cursor is always >=1; guard against impossible state
 
   local bnodes = outline.bnodes
   local levels = outline.levels
@@ -778,7 +889,9 @@ function M.move_down(tree_buf)
 
   -- Find next sibling.
   local next_sib = tree.find_next_sibling_lnum(levels, tlnum)
-  if not next_sib then return end
+  if not next_sib then
+    return
+  end
 
   -- Tree line k = bnodes[k] / levels[k] (direct mapping; no root offset).
   local ln1 = tlnum -- bnodes index of first node being moved
@@ -874,11 +987,18 @@ function M.move_down(tree_buf)
 
   if mode and mode.do_body_after_oop and outline_state then
     mode.do_body_after_oop(
-      all_lines, new_bnodes, new_levels, outline_state,
-      "down", lev_delta,
-      bln_show, new_snLn_idx,
-      bln_show + #moved_lines - 1, new_snLn_idx + #n_levels - 1,
-      blnum_cut, tlnum_cut
+      all_lines,
+      new_bnodes,
+      new_levels,
+      outline_state,
+      "down",
+      lev_delta,
+      bln_show,
+      new_snLn_idx,
+      bln_show + #moved_lines - 1,
+      new_snLn_idx + #n_levels - 1,
+      blnum_cut,
+      tlnum_cut
     )
   end
 
@@ -901,19 +1021,29 @@ end
 -- Promote (decrease heading level by 1) for the current node.
 function M.promote(tree_buf)
   local body_buf = state.get_body(tree_buf)
-  if not body_buf then return end
+  if not body_buf then
+    return
+  end
   local outline = state.get_outline(body_buf)
-  if not outline then return end
+  if not outline then
+    return
+  end
   local outline_state = state.get_outline_state(body_buf)
   local entry = state.bodies[body_buf]
-  if not entry then return end
+  if not entry then
+    return
+  end
   local mode = modes.get(entry.mode)
 
   local tree_win = find_win_for_buf(tree_buf)
-  if not tree_win then return end
+  if not tree_win then
+    return
+  end
 
   local tlnum = vim.api.nvim_win_get_cursor(tree_win)[1]
-  if tlnum < 1 then return end  -- cursor is always >=1; guard against impossible state
+  if tlnum < 1 then
+    return
+  end -- cursor is always >=1; guard against impossible state
 
   local bnodes = outline.bnodes
   local levels = outline.levels
@@ -928,7 +1058,8 @@ function M.promote(tree_buf)
     if levels[i] <= 1 then
       vim.api.nvim_echo(
         { { "VOoM: cannot promote — already at top level", "WarningMsg" } },
-        true, {}
+        true,
+        {}
       )
       return
     end
@@ -956,11 +1087,18 @@ function M.promote(tree_buf)
   -- Call do_body_after_oop for format changes (ATX ↔ setext etc.)
   if mode and mode.do_body_after_oop and outline_state then
     mode.do_body_after_oop(
-      all_lines, new_bnodes, new_levels, outline_state,
-      "left", -1,
-      blnum1, ln1,
-      blnum2, ln2,
-      0, 0
+      all_lines,
+      new_bnodes,
+      new_levels,
+      outline_state,
+      "left",
+      -1,
+      blnum1,
+      ln1,
+      blnum2,
+      ln2,
+      0,
+      0
     )
   end
 
@@ -982,19 +1120,29 @@ end
 -- Demote (increase heading level by 1) for the current node.
 function M.demote(tree_buf)
   local body_buf = state.get_body(tree_buf)
-  if not body_buf then return end
+  if not body_buf then
+    return
+  end
   local outline = state.get_outline(body_buf)
-  if not outline then return end
+  if not outline then
+    return
+  end
   local outline_state = state.get_outline_state(body_buf)
   local entry = state.bodies[body_buf]
-  if not entry then return end
+  if not entry then
+    return
+  end
   local mode = modes.get(entry.mode)
 
   local tree_win = find_win_for_buf(tree_buf)
-  if not tree_win then return end
+  if not tree_win then
+    return
+  end
 
   local tlnum = vim.api.nvim_win_get_cursor(tree_win)[1]
-  if tlnum < 1 then return end  -- cursor is always >=1; guard against impossible state
+  if tlnum < 1 then
+    return
+  end -- cursor is always >=1; guard against impossible state
 
   local bnodes = outline.bnodes
   local levels = outline.levels
@@ -1009,7 +1157,8 @@ function M.demote(tree_buf)
   if ln1 > 1 and levels[ln1] > levels[ln1 - 1] then
     vim.api.nvim_echo(
       { { "VOoM: cannot demote — already a child of previous node", "WarningMsg" } },
-      true, {}
+      true,
+      {}
     )
     return
   end
@@ -1019,7 +1168,8 @@ function M.demote(tree_buf)
     if levels[i] >= 6 then
       vim.api.nvim_echo(
         { { "VOoM: cannot demote — already at maximum level", "WarningMsg" } },
-        true, {}
+        true,
+        {}
       )
       return
     end
@@ -1047,11 +1197,18 @@ function M.demote(tree_buf)
   -- Call do_body_after_oop for format changes.
   if mode and mode.do_body_after_oop and outline_state then
     mode.do_body_after_oop(
-      all_lines, new_bnodes, new_levels, outline_state,
-      "right", 1,
-      blnum1, ln1,
-      blnum2, ln2,
-      0, 0
+      all_lines,
+      new_bnodes,
+      new_levels,
+      outline_state,
+      "right",
+      1,
+      blnum1,
+      ln1,
+      blnum2,
+      ln2,
+      0,
+      0
     )
   end
 
@@ -1079,14 +1236,22 @@ function M.sort(body_buf, args_string)
   if state.is_tree(body_buf) then
     body_buf = state.get_body(body_buf)
   end
-  if not state.is_body(body_buf) then return end
+  if not state.is_body(body_buf) then
+    return
+  end
   local outline = state.get_outline(body_buf)
-  if not outline then return end
+  if not outline then
+    return
+  end
 
   local tree_buf = state.get_tree(body_buf)
-  if not tree_buf then return end
+  if not tree_buf then
+    return
+  end
   local tree_win = find_win_for_buf(tree_buf)
-  if not tree_win then return end
+  if not tree_win then
+    return
+  end
 
   local bnodes = outline.bnodes
   local levels = outline.levels
@@ -1099,9 +1264,9 @@ function M.sort(body_buf, args_string)
   end
 
   local tlnum = vim.api.nvim_win_get_cursor(tree_win)[1]
+  local selected_chunk
 
   -- Find the parent to identify the sibling group to sort.
-  local parent_tlnum = tree.find_parent_lnum(levels, tlnum)
   local first_sib = tree.find_first_sibling_lnum(levels, tlnum)
   local last_sib = tree.find_last_sibling_lnum(levels, tlnum)
 
@@ -1110,7 +1275,7 @@ function M.sort(body_buf, args_string)
   local chunks = {} -- { { tlnum_start, tlnum_end, bln1, bln2, sort_key, body_lines } }
   local sib = first_sib
   while sib do
-    local sib_idx = sib  -- direct mapping: tree line = bnodes/levels index
+    local sib_idx = sib -- direct mapping: tree line = bnodes/levels index
     local sub_count = M.count_subnodes(levels, sib)
     local sib_end = sib_idx + sub_count -- last bnodes index in this branch
 
@@ -1133,11 +1298,11 @@ function M.sort(body_buf, args_string)
 
     table.insert(chunks, {
       tlnum_start = sib,
-      tlnum_end   = sib + sub_count,
-      bln1        = bln1,
-      bln2        = bln2,
-      sort_key    = sort_key,
-      body_lines  = body_lines,
+      tlnum_end = sib + sub_count,
+      bln1 = bln1,
+      bln2 = bln2,
+      sort_key = sort_key,
+      body_lines = body_lines,
       levels_slice = (function()
         local sl = {}
         for i = sib_idx, sib_end do
@@ -1146,9 +1311,14 @@ function M.sort(body_buf, args_string)
         return sl
       end)(),
     })
+    if sib == tlnum then
+      selected_chunk = chunks[#chunks]
+    end
 
     -- Advance to next sibling.
-    if sib > last_sib then break end
+    if sib > last_sib then
+      break
+    end
     local next = tree.find_next_sibling_lnum(levels, sib)
     if not next or next > last_sib + M.count_subnodes(levels, last_sib) then
       break
@@ -1156,7 +1326,9 @@ function M.sort(body_buf, args_string)
     sib = next
   end
 
-  if #chunks < 2 then return end
+  if #chunks < 2 then
+    return
+  end
 
   -- Sort the chunks.
   if opts.shuffle then
@@ -1186,11 +1358,10 @@ function M.sort(body_buf, args_string)
   -- TODO: implement `deep` option (recursive sort of children).
 
   -- Rebuild the body by replacing the sibling range with sorted chunks.
-  local range_bln1 = chunks[1] and chunks[1].bln1
   -- We need the original first and last body lines of the entire sibling group.
-  local orig_bln1 = bnodes[first_sib - 1]
+  local orig_bln1 = bnodes[first_sib]
   local orig_bln2
-  local last_sib_end = (last_sib - 1) + M.count_subnodes(levels, last_sib)
+  local last_sib_end = last_sib + M.count_subnodes(levels, last_sib)
   if last_sib_end < #bnodes then
     orig_bln2 = bnodes[last_sib_end + 1] - 1
   else
@@ -1208,6 +1379,22 @@ function M.sort(body_buf, args_string)
   -- Replace in buffer.
   vim.api.nvim_buf_set_lines(body_buf, orig_bln1 - 1, orig_bln2, false, sorted_lines)
   refresh_after_edit(body_buf)
+
+  -- Keep the same root node selected after sorting.
+  if selected_chunk then
+    local selected_tlnum = first_sib
+    for _, chunk in ipairs(chunks) do
+      if chunk == selected_chunk then
+        break
+      end
+      selected_tlnum = selected_tlnum + #chunk.levels_slice
+    end
+
+    state.set_snLn(body_buf, selected_tlnum)
+    if tree_win and vim.api.nvim_win_is_valid(tree_win) then
+      vim.api.nvim_win_set_cursor(tree_win, { selected_tlnum, 0 })
+    end
+  end
 end
 
 return M
