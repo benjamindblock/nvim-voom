@@ -1471,6 +1471,19 @@ function M.create(body_buf, mode_name)
   vim.api.nvim_win_set_buf(tree_win, tree_buf)
   vim.api.nvim_win_set_option(tree_win, "winfixwidth", true)
 
+  -- Strip UI gutters that consume columns without displaying tree content.
+  -- This keeps nvim_win_get_width() consistent with the visible text area so
+  -- that heading truncation thresholds are accurate.  Users may have number,
+  -- relativenumber, signcolumn, or foldcolumn set globally; override them here
+  -- so the tree panel looks clean regardless of their preferences.
+  vim.wo[tree_win].number         = false
+  vim.wo[tree_win].relativenumber = false
+  vim.wo[tree_win].signcolumn     = "no"
+  vim.wo[tree_win].foldcolumn     = "0"
+  -- Prevent visual line-wrapping.  Truncation ensures lines fit within the
+  -- panel width; wrapping would re-introduce the overflow we just removed.
+  vim.wo[tree_win].wrap           = false
+
   -- Register state before configuring folds. foldexpr evaluates through
   -- state.get_body()/get_outline(); without registration Neovim sees "0" and
   -- creates no folds on first open.
