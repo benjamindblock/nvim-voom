@@ -144,6 +144,30 @@ same parent), moving each node together with its entire subtree.
 | `flip`    | Reverse the current order                   |
 | `shuffle` | Randomize order (Fisher-Yates shuffle)      |
 
+## Customization
+
+### Heading colors
+
+Each heading level in the tree pane is colored with a dedicated highlight
+group, `VoomHeading1` through `VoomHeading6`. By default these are linked
+to the treesitter markdown heading groups (`@markup.heading.N.markdown`),
+so they automatically match whatever colorscheme you have active (including
+light themes).
+
+To override the colors, add `vim.api.nvim_set_hl` calls to your Neovim
+config **after** the colorscheme is applied — for example inside a
+`ColorScheme` autocommand or at the bottom of your `init.lua`:
+
+```lua
+-- Example: bold white for H1, a custom green for H2.
+vim.api.nvim_set_hl(0, "VoomHeading1", { fg = "#ffffff", bold = true })
+vim.api.nvim_set_hl(0, "VoomHeading2", { fg = "#a6e3a1" })
+```
+
+To restore the plugin defaults, clear your overrides with
+`:hi clear VoomHeading1` (repeat for each level you changed), then reload
+the plugin or restart Neovim.
+
 ## Development
 
 Requires [mise](https://mise.jdx.dev/) for tool management.
