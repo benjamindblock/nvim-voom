@@ -118,7 +118,7 @@ end
 
 ## Item 3 — Per-level heading colors
 
-- [ ] **Done**
+- [x] **Done**
 
 **File:** `lua/voom/tree.lua`
 

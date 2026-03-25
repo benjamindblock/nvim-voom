@@ -26,6 +26,7 @@ local state  = require("voom.state")
 -- integer for repeated calls with the same name.
 local FOLD_NS  = vim.api.nvim_create_namespace("voom_fold_indicators")
 local GUIDE_NS = vim.api.nvim_create_namespace("voom_indent_guides")
+local HEAD_NS  = vim.api.nvim_create_namespace("voom_headings")
 
 -- Per-body history for tree-initiated structural operations.  This guarantees
 -- one tree undo step per tree action even when Neovim coalesces underlying
@@ -98,6 +99,23 @@ local function define_highlights()
   vim.api.nvim_set_hl(0, "VoomFoldClosed",  { default = true, fg = "#e0af68" }) -- ▶ amber
   vim.api.nvim_set_hl(0, "VoomLeafNode",    { default = true, fg = "#565f89" }) -- · muted grey
   vim.api.nvim_set_hl(0, "VoomIndentGuide", { default = true, fg = "#3b4261" }) -- │ dark grey
+
+  -- Link per-level heading groups to the treesitter markdown heading groups so
+  -- colors automatically adapt to any colorscheme.  `default = true` means a
+  -- user's :hi override (or a colorscheme's explicit set) takes precedence.
+  -- When the linked group is absent (no treesitter), Neovim silently clears
+  -- the group — a safe no-op rather than rendering wrong colors.
+  local heading_links = {
+    "@markup.heading.1.markdown",
+    "@markup.heading.2.markdown",
+    "@markup.heading.3.markdown",
+    "@markup.heading.4.markdown",
+    "@markup.heading.5.markdown",
+    "@markup.heading.6.markdown",
+  }
+  for i, group in ipairs(heading_links) do
+    vim.api.nvim_set_hl(0, "VoomHeading" .. i, { default = true, link = group })
+  end
 end
 
 -- Re-apply highlights whenever the colorscheme changes so user theme overrides
@@ -142,6 +160,29 @@ local function render_indent_guides(tree_buf, outline)
   end
 end
 
+-- Apply `VoomHeadingN` highlights to the text portion of every heading line.
+--
+-- The heading text starts after the leading space, the (lev-1)*2 indent bytes,
+-- and the 2-byte "· " icon placeholder, so text_col = 1 + (lev-1)*2 + 2.
+-- Levels beyond 6 are clamped to VoomHeading6.
+--
+-- Called from apply_fold_indicators alongside render_indent_guides so all
+-- decoration happens in a single pass from every call site.
+local function render_heading_highlights(tree_buf, outline)
+  vim.api.nvim_buf_clear_namespace(tree_buf, HEAD_NS, 0, -1)
+
+  local levels = outline.levels
+
+  for idx, lev in ipairs(levels) do
+    -- extmark rows are 0-indexed; levels[idx] lives on tree line idx (1-indexed)
+    -- = extmark row idx-1.
+    local row      = idx - 1
+    local hl       = "VoomHeading" .. math.min(lev, 6)
+    local text_col = 1 + (lev - 1) * 2 + 2
+    vim.api.nvim_buf_add_highlight(tree_buf, HEAD_NS, hl, row, text_col, -1)
+  end
+end
+
 -- Apply virtual-text fold-state icons to every heading line in `tree_buf`.
 --
 -- The icon placeholder · in each heading line is overlaid (not replaced in the
@@ -178,6 +219,7 @@ function M.apply_fold_indicators(tree_buf, body_buf)
   if not outline then return end
 
   render_indent_guides(tree_buf, outline)
+  render_heading_highlights(tree_buf, outline)
 
   if not cfg.enabled then return end
 
