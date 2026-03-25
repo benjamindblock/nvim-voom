@@ -3,7 +3,7 @@ local M = {}
 -- Default configuration. Users override via require("voom").setup({...}).
 M.defaults = {
   -- Width of the tree pane in columns.
-  tree_width = 30,
+  tree_width = 40,
   -- Default markup mode when none is specified.
   default_mode = "markdown",
   -- Virtual-text fold-state indicators shown next to each tree node.

@@ -18,7 +18,7 @@ T["config"] = MiniTest.new_set()
 
 T["config"]["has default tree_width"] = function()
   local config = require("voom.config")
-  MiniTest.expect.equality(config.defaults.tree_width, 30)
+  MiniTest.expect.equality(config.defaults.tree_width, 40)
 end
 
 T["config"]["has default mode"] = function()
