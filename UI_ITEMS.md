@@ -166,7 +166,7 @@ end
 
 ## Item 4 — Truncate long headings with `…`
 
-- [ ] **Done**
+- [x] **Done**
 
 > **Depends on Item 2** (uses the 2-space-per-level indent to compute prefix width).
 

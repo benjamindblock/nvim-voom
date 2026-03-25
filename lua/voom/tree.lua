@@ -69,10 +69,39 @@ local function write_lines(buf, lines)
   vim.api.nvim_buf_set_option(buf, "modifiable", false)
 end
 
--- Return the list of tree display lines from outline data.
+-- Truncate heading `text` to fit within `max_cols - prefix_width` display
+-- columns, appending `…` when truncation is needed.  Returns `text` unchanged
+-- when it already fits.
+-- `prefix_width`: columns consumed by the leading space + indent + "· ".
+local function truncate_heading(text, prefix_width, max_cols)
+  local available = max_cols - prefix_width
+  if vim.fn.strdisplaywidth(text) <= available then
+    return text
+  end
+  local truncated = text
+  while vim.fn.strdisplaywidth(truncated .. "…") > available do
+    -- Drop one byte at a time.  Safe for ASCII; for multibyte strings this
+    -- may need a few extra iterations but never produces corrupt output.
+    truncated = truncated:sub(1, -2)
+  end
+  return truncated .. "…"
+end
+
+-- Return the list of tree display lines from outline data, truncating each
+-- heading so it fits within `max_cols` display columns.
 -- The winbar now carries the filename, so the tree is a pure heading list.
-local function build_tree_lines(outline)
-  return outline.tlines
+local function build_tree_lines(outline, max_cols)
+  local result = {}
+  for i, tline in ipairs(outline.tlines) do
+    local lev = outline.levels[i]
+    -- Prefix layout per Item 2: 1 leading space + (lev-1)*2 indent bytes
+    -- + "· " (2 bytes) = 1 + lev*2 columns total.
+    local prefix_width = 1 + lev * 2
+    local head         = tline:sub(prefix_width + 1)
+    result[i]          = tline:sub(1, prefix_width)
+                         .. truncate_heading(head, prefix_width, max_cols)
+  end
+  return result
 end
 
 -- Extract the heading text that appears after the '|' separator in a tree
@@ -1361,6 +1390,21 @@ local function setup_autocommands(body_buf, tree_buf)
     end,
   })
 
+  -- Re-render headings with updated truncation whenever the tree window is
+  -- resized (mouse drag, keyboard split-resize, or terminal resize).
+  -- vim.v.event.windows lists every window whose dimensions changed.
+  vim.api.nvim_create_autocmd("WinResized", {
+    group  = aug,
+    callback = function()
+      for _, win in ipairs(vim.v.event.windows) do
+        if vim.api.nvim_win_get_buf(win) == tree_buf then
+          M.update(body_buf)
+          break
+        end
+      end
+    end,
+  })
+
   -- Clean up state when the tree is wiped out (e.g. user runs :bwipe).
   vim.api.nvim_create_autocmd("BufWipeout", {
     group  = aug,
@@ -1394,7 +1438,9 @@ function M.create(body_buf, mode_name)
   local outline  = mode.make_outline(lines, buf_name)
 
   -- Build the display line list (headings only; filename lives in the winbar).
-  local tree_lines = build_tree_lines(outline)
+  -- The window does not exist yet at this point, so we use the configured
+  -- width; the window will be opened at exactly that width.
+  local tree_lines = build_tree_lines(outline, tree_width())
 
   -- Create the scratch buffer that will hold the tree display.
   local tree_buf = vim.api.nvim_create_buf(false, true)
@@ -1479,14 +1525,18 @@ function M.update(body_buf)
   local lines    = vim.api.nvim_buf_get_lines(body_buf, 0, -1, false)
   local outline  = mode.make_outline(lines, buf_name)
 
-  local tree_lines = build_tree_lines(outline)
+  -- Resolve the tree window early so we can truncate headings to its actual
+  -- current width rather than the configured default (they differ after the
+  -- user resizes the panel).
+  local tree_win   = find_win_for_buf(entry.tree)
+  local max_cols   = tree_win and vim.api.nvim_win_get_width(tree_win) or tree_width()
+  local tree_lines = build_tree_lines(outline, max_cols)
   write_lines(entry.tree, tree_lines)
   state.set_outline(body_buf, outline)
   state.set_changedtick(body_buf, vim.api.nvim_buf_get_changedtick(body_buf))
 
   -- Recompute fold structure after line rewrites so fold commands work
   -- immediately after structural edits (promote/demote/move/etc).
-  local tree_win = find_win_for_buf(entry.tree)
   if tree_win then
     pcall(function()
       vim.api.nvim_win_call(tree_win, function()
