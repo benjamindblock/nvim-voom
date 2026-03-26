@@ -65,18 +65,14 @@ The public plugin API, commands, keymaps, and user-visible behavior must remain 
 - Remaining vestigial `_body_buf`/`_tree_buf` assignments in tree_spec and voom_spec test bodies are harmless dead stores that can be cleaned up in a follow-on pass.
 - Full test suite (192 cases) passes with zero failures after migration.
 
-3. **Add `get_mode` and migrate production code off direct `state.bodies` access**
-- The only missing state accessor is `get_mode(body_buf)`. All others already exist in `state.lua`:
-  - `get_tree(body_buf)`, `get_body(tree_buf)`, `get_outline(body_buf)`, `get_outline_state(body_buf)`.
-  - `get_snLn(body_buf)` / `set_snLn(body_buf, lnum)`.
-  - `get_changedtick(body_buf)` / `set_changedtick(body_buf, tick)`.
-- Add `get_mode(body_buf)` to `voom.state`.
-- Replace all 9 direct `state.bodies[body_buf]` accesses in production code:
-  - `oop.lua` (7 places): each reads `entry.mode` to call `modes.get(entry.mode)`. Replace with `state.get_mode(body_buf)`.
-  - `tree.lua` (1 place, line 1577): reads `entry.mode` and `entry.tree`. Replace with `state.get_mode` and `state.get_tree`.
-  - `init.lua` (`voominfo`, line 257): reads `entry.tree`, `entry.snLn`, `#entry.bnodes`, and `entry.mode`. Replace with `state.get_tree`, `state.get_snLn`, `state.get_outline`, and `state.get_mode`.
+3. **Add `get_mode` and migrate production code off direct `state.bodies` access** — COMPLETE
+- Added `get_mode(body_buf)` to `voom.state`.
+- Replaced all 9 direct `state.bodies[body_buf]` accesses in production code:
+  - `oop.lua` (7 places): each now uses `state.get_mode(body_buf)` instead of `entry.mode`.
+  - `tree.lua` (1 place, `update()`): now uses `state.get_mode` and `state.get_tree` instead of `entry.mode` and `entry.tree`.
+  - `init.lua` (`voominfo`): now uses `state.get_tree`, `state.get_snLn`, `state.get_outline`, and `state.get_mode` instead of direct entry field access.
 - No direct `state.trees[` access exists in production code; no migration needed for that table.
-- Preserve all current guards and early-return behavior for missing or invalid state.
+- All 192 contract tests pass with zero failures after migration.
 
 4. **Define the internal flow and result contract before extracting helpers**
 - Write down the private flow that every mutating tree command should follow:

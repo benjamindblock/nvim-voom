@@ -92,6 +92,12 @@ function M.get_tree(body_buf)
   return entry and entry.tree or nil
 end
 
+-- Return the markup mode name (e.g. "markdown") for a body buffer, or nil.
+function M.get_mode(body_buf)
+  local entry = M.bodies[body_buf]
+  return entry and entry.mode or nil
+end
+
 -- Return { bnodes, levels } for a body buffer, or nil.
 function M.get_outline(body_buf)
   local entry = M.bodies[body_buf]

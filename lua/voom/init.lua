@@ -254,15 +254,16 @@ function M.voominfo()
     return
   end
 
-  local entry = state.bodies[body_buf]
-  if not entry then
+  local tree_buf = state.get_tree(body_buf)
+  local snLn = state.get_snLn(body_buf)
+  local outline = state.get_outline(body_buf)
+  local mode_name = state.get_mode(body_buf)
+  if not tree_buf or not snLn or not outline or not mode_name then
     vim.notify("VOoM: no state entry found", vim.log.levels.ERROR)
     return
   end
 
-  local tree_buf = entry.tree
-  local snLn = entry.snLn
-  local node_count = #entry.bnodes
+  local node_count = #outline.bnodes
 
   -- Read the heading text for the currently selected node.  Tree line 1 is
   -- the first real heading (there is no synthetic root node), so we read from
@@ -275,7 +276,7 @@ function M.voominfo()
 
   local msg = string.format(
     "VOoM info\n  mode:   %s\n  nodes:  %d\n  snLn:   %d\n  node:   %s",
-    tostring(entry.mode),
+    tostring(mode_name),
     node_count,
     snLn,
     headline

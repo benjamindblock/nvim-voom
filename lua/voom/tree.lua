@@ -1574,8 +1574,8 @@ end
 function M.update(body_buf)
   if not state.is_body(body_buf) then return end
 
-  local entry = state.bodies[body_buf]
-  local mode  = modes.get(entry.mode)
+  local mode_name = state.get_mode(body_buf)
+  local mode      = mode_name and modes.get(mode_name)
   if not mode then return end
 
   local buf_name = vim.api.nvim_buf_get_name(body_buf)
@@ -1585,10 +1585,11 @@ function M.update(body_buf)
   -- Resolve the tree window early so we can truncate headings to its actual
   -- current width rather than the configured default (they differ after the
   -- user resizes the panel).
-  local tree_win   = find_win_for_buf(entry.tree)
+  local tree_buf   = state.get_tree(body_buf)
+  local tree_win   = tree_buf and find_win_for_buf(tree_buf)
   local max_cols   = tree_win and vim.api.nvim_win_get_width(tree_win) or tree_width()
   local tree_lines = build_tree_lines(outline, max_cols)
-  write_lines(entry.tree, tree_lines)
+  write_lines(tree_buf, tree_lines)
   state.set_outline(body_buf, outline)
   state.set_changedtick(body_buf, vim.api.nvim_buf_get_changedtick(body_buf))
 
@@ -1602,7 +1603,7 @@ function M.update(body_buf)
     end)
   end
 
-  M.apply_fold_indicators(entry.tree, body_buf)
+  M.apply_fold_indicators(tree_buf, body_buf)
   if tree_win then
     update_winbar(tree_win, body_buf)
   end

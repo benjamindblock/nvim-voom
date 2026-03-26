@@ -203,11 +203,11 @@ function M.insert_node(tree_buf, as_child)
   if not outline_state then
     return
   end
-  local entry = state.bodies[body_buf]
-  if not entry then
+  local mode_name = state.get_mode(body_buf)
+  if not mode_name then
     return
   end
-  local mode = modes.get(entry.mode)
+  local mode = modes.get(mode_name)
   if not mode then
     return
   end
@@ -381,11 +381,11 @@ function M.cut_node(tree_buf)
     return
   end
   local outline_state = state.get_outline_state(body_buf)
-  local entry = state.bodies[body_buf]
-  if not entry then
+  local mode_name = state.get_mode(body_buf)
+  if not mode_name then
     return
   end
-  local mode = modes.get(entry.mode)
+  local mode = modes.get(mode_name)
 
   local tree_win = find_win_for_buf(tree_buf)
   if not tree_win then
@@ -522,11 +522,11 @@ function M.paste_node(tree_buf)
   if not outline_state then
     return
   end
-  local entry = state.bodies[body_buf]
-  if not entry then
+  local mode_name = state.get_mode(body_buf)
+  if not mode_name then
     return
   end
-  local mode = modes.get(entry.mode)
+  local mode = modes.get(mode_name)
   if not mode then
     return
   end
@@ -714,11 +714,11 @@ function M.move_up(tree_buf)
     return
   end
   local outline_state = state.get_outline_state(body_buf)
-  local entry = state.bodies[body_buf]
-  if not entry then
+  local mode_name = state.get_mode(body_buf)
+  if not mode_name then
     return
   end
-  local mode = modes.get(entry.mode)
+  local mode = modes.get(mode_name)
 
   local tree_win = find_win_for_buf(tree_buf)
   if not tree_win then
@@ -867,11 +867,11 @@ function M.move_down(tree_buf)
     return
   end
   local outline_state = state.get_outline_state(body_buf)
-  local entry = state.bodies[body_buf]
-  if not entry then
+  local mode_name = state.get_mode(body_buf)
+  if not mode_name then
     return
   end
-  local mode = modes.get(entry.mode)
+  local mode = modes.get(mode_name)
 
   local tree_win = find_win_for_buf(tree_buf)
   if not tree_win then
@@ -1029,11 +1029,11 @@ function M.promote(tree_buf)
     return
   end
   local outline_state = state.get_outline_state(body_buf)
-  local entry = state.bodies[body_buf]
-  if not entry then
+  local mode_name = state.get_mode(body_buf)
+  if not mode_name then
     return
   end
-  local mode = modes.get(entry.mode)
+  local mode = modes.get(mode_name)
 
   local tree_win = find_win_for_buf(tree_buf)
   if not tree_win then
@@ -1128,11 +1128,11 @@ function M.demote(tree_buf)
     return
   end
   local outline_state = state.get_outline_state(body_buf)
-  local entry = state.bodies[body_buf]
-  if not entry then
+  local mode_name = state.get_mode(body_buf)
+  if not mode_name then
     return
   end
-  local mode = modes.get(entry.mode)
+  local mode = modes.get(mode_name)
 
   local tree_win = find_win_for_buf(tree_buf)
   if not tree_win then
