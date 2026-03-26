@@ -32,8 +32,15 @@ omitting `setup()` entirely leaves all defaults in effect.
         -- Width of the tree pane in columns.
         tree_width = 40,
 
+        -- Which side of the editor the tree pane opens on.
+        tree_position = "left",     -- "left" or "right"
+
         -- Default markup mode when none can be auto-detected from 'filetype'.
         default_mode = "markdown",
+
+        -- Whether moving the cursor in the tree scrolls the body window
+        -- to the corresponding heading without moving focus.
+        cursor_follow = true,
 
         -- Virtual-text fold-state indicators shown next to tree nodes.
         fold_indicators = {
@@ -46,7 +53,82 @@ omitting `setup()` entirely leaves all defaults in effect.
             enabled = true,
             char    = "│",   -- U+2502 box-drawing vertical bar
         },
+
+        -- End-of-line "+N" descendant-count badges on collapsed nodes.
+        badges = {
+            enabled = true,
+        },
+
+        -- Callback invoked after the tree pane is created.
+        -- Signature: function(body_buf, tree_buf)
+        on_open = nil,
+
+        -- Default flags for :VoomSort when the user provides no arguments.
+        sort = {
+            default_opts = "",   -- e.g. "i" to always sort case-insensitively
+        },
     })
+
+------------------------------------------------------------------------------
+CONFIGURATION OPTIONS                                    *voom-config-options*
+
+tree_width ~                                             *voom-opt-tree_width*
+    Type:    number
+    Default: 40
+    Width of the tree pane in columns.
+
+tree_position ~                                       *voom-opt-tree_position*
+    Type:    "left" | "right"
+    Default: "left"
+    Which side of the editor window the tree pane opens on.
+
+default_mode ~                                         *voom-opt-default_mode*
+    Type:    string
+    Default: "markdown"
+    Markup mode used when none can be auto-detected from 'filetype'.
+
+cursor_follow ~                                       *voom-opt-cursor_follow*
+    Type:    boolean
+    Default: true
+    Whether moving the cursor in the tree automatically scrolls the body
+    window to the corresponding heading without moving focus.  Set to false
+    to navigate the tree silently without scrolling the body.
+
+fold_indicators ~                                   *voom-opt-fold_indicators*
+    Type:    table { enabled: boolean, icons: table }
+    Default: { enabled = true, icons = { open = "▾", closed = "▶", leaf = "·" } }
+    Virtual-text fold-state icons shown next to each tree node.
+    Set `enabled = false` to hide them entirely.  `icons` controls the
+    characters used for open parents, closed parents, and leaf nodes.
+
+indent_guides ~                                       *voom-opt-indent_guides*
+    Type:    table { enabled: boolean, char: string }
+    Default: { enabled = true, char = "│" }
+    Vertical guide lines rendered at each ancestor column to make nesting
+    depth easy to follow.  Set `enabled = false` to hide them.  `char` must
+    be a single display-column character.
+
+badges ~                                                   *voom-opt-badges*
+    Type:    table { enabled: boolean }
+    Default: { enabled = true }
+    Show `+N` end-of-line badges on collapsed nodes that have children,
+    where N is the total number of hidden descendants.  Set `enabled = false`
+    to hide them.
+
+on_open ~                                                 *voom-opt-on_open*
+    Type:    function(body_buf, tree_buf) | nil
+    Default: nil
+    Callback invoked after the tree pane is created.  Receives the body
+    buffer number and tree buffer number.  Useful for applying buffer-local
+    settings, keymaps, or highlight overrides to the tree pane.
+
+sort ~                                                      *voom-opt-sort*
+    Type:    table { default_opts: string }
+    Default: { default_opts = "" }
+    Options for the |:VoomSort| command.  `default_opts` specifies flags
+    that are applied when the user calls `:VoomSort` with no arguments
+    (e.g. `"i"` to always sort case-insensitively, `"i r"` for reverse
+    case-insensitive).
 
 ==============================================================================
 COMMANDS                                                    *voom-commands*

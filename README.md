@@ -33,8 +33,10 @@ plugin loads to override defaults:
 
 ```lua
 require("voom").setup({
-  tree_width   = 40,         -- width of the tree pane in columns
-  default_mode = "markdown", -- markup mode used when none can be auto-detected
+  tree_width    = 40,         -- width of the tree pane in columns
+  tree_position = "left",     -- "left" or "right"
+  default_mode  = "markdown", -- markup mode used when none can be auto-detected
+  cursor_follow = true,       -- scroll body to heading when tree cursor moves
   fold_indicators = {
     enabled = true,
     icons   = { open = "▾", closed = "▶", leaf = "·" },
@@ -43,11 +45,34 @@ require("voom").setup({
     enabled = true,
     char    = "│",            -- U+2502 box-drawing vertical bar
   },
+  badges = {
+    enabled = true,           -- show +N descendant-count badges on folded nodes
+  },
+  on_open = nil,              -- function(body_buf, tree_buf) called after tree opens
+  sort = {
+    default_opts = "",        -- default flags for :VoomSort (e.g. "i")
+  },
 })
 ```
 
 `setup()` is optional — all options have sensible defaults and the plugin
 works without any explicit configuration.
+
+### Configuration reference
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `tree_width` | `number` | `40` | Width of the tree pane in columns. |
+| `tree_position` | `"left"\|"right"` | `"left"` | Which side the tree pane opens on. |
+| `default_mode` | `string` | `"markdown"` | Markup mode used when none can be auto-detected from `filetype`. |
+| `cursor_follow` | `boolean` | `true` | Whether moving the cursor in the tree automatically scrolls the body to the corresponding heading. |
+| `fold_indicators.enabled` | `boolean` | `true` | Show virtual-text fold-state icons (`▾`/`▶`/`·`) next to each tree node. |
+| `fold_indicators.icons` | `table` | `{ open="▾", closed="▶", leaf="·" }` | Characters used for fold indicators. |
+| `indent_guides.enabled` | `boolean` | `true` | Render vertical guide lines at ancestor columns of nested headings. |
+| `indent_guides.char` | `string` | `"│"` | Character used for indent guides. Must be a single display-column character. |
+| `badges.enabled` | `boolean` | `true` | Show `+N` descendant-count badges on collapsed nodes. |
+| `on_open` | `function\|nil` | `nil` | Callback `function(body_buf, tree_buf)` invoked after the tree pane is created. |
+| `sort.default_opts` | `string` | `""` | Default flags passed to `:VoomSort` when none are specified (e.g. `"i"` to always sort case-insensitively). |
 
 ## Commands
 

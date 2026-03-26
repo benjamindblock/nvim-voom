@@ -54,6 +54,12 @@ local function tree_width()
     or config.defaults.tree_width
 end
 
+-- Return the effective tree position ("left" or "right").
+local function tree_position()
+  return (config.options and config.options.tree_position)
+    or config.defaults.tree_position
+end
+
 local find_win_for_buf = tree_utils.find_win_for_buf
 
 -- Write `lines` into `buf`, temporarily enabling modifiability.
@@ -332,7 +338,11 @@ function M.apply_fold_indicators(tree_buf, body_buf)
     })
   end
 
-  render_count_badges(tree_win, tree_buf, outline)
+  local cfg_badges = (config.options and config.options.badges)
+    or config.defaults.badges
+  if cfg_badges.enabled then
+    render_count_badges(tree_win, tree_buf, outline)
+  end
 end
 
 -- ==============================================================================
@@ -1399,8 +1409,14 @@ local function setup_autocommands(body_buf, tree_buf)
     buffer = tree_buf,
     callback = function()
       refresh_tree_if_body_changed(body_buf)
-      local lnum = vim.api.nvim_win_get_cursor(0)[1]
-      M.follow_cursor(tree_buf, lnum)
+      -- Respect the cursor_follow config; read it each time so the user can
+      -- toggle it between calls without restarting the plugin.
+      local follow = config.options.cursor_follow
+      if follow == nil then follow = config.defaults.cursor_follow end
+      if follow then
+        local lnum = vim.api.nvim_win_get_cursor(0)[1]
+        M.follow_cursor(tree_buf, lnum)
+      end
     end,
   })
 
@@ -1479,8 +1495,11 @@ function M.create(body_buf, mode_name)
     vim.api.nvim_set_current_win(body_win)
   end
 
-  -- Open a left-side vertical split for the tree.
-  vim.cmd("leftabove vertical " .. tree_width() .. "split")
+  -- Open a vertical split on the configured side.
+  local split_cmd = (tree_position() == "right")
+    and ("rightbelow vertical " .. tree_width() .. "split")
+    or  ("leftabove vertical "  .. tree_width() .. "split")
+  vim.cmd(split_cmd)
   local tree_win = vim.api.nvim_get_current_win()
   vim.api.nvim_win_set_buf(tree_win, tree_buf)
   vim.api.nvim_win_set_option(tree_win, "winfixwidth", true)
@@ -1529,6 +1548,14 @@ function M.create(body_buf, mode_name)
   -- is fully initialised before foldclosed() is queried inside the function.
   M.apply_fold_indicators(tree_buf, body_buf)
   update_winbar(tree_win, body_buf)
+
+  -- Invoke the user's on_open callback, if configured.  pcall guards against
+  -- errors in the callback propagating out of create() and aborting setup.
+  local on_open = (config.options and config.options.on_open)
+    or config.defaults.on_open
+  if on_open then
+    pcall(on_open, body_buf, tree_buf)
+  end
 
   -- Leave the cursor in the body window so the user can continue editing.
   local new_body_win = find_win_for_buf(body_buf)

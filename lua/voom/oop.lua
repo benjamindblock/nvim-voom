@@ -117,6 +117,7 @@
 
 local M = {}
 
+local config     = require("voom.config")
 local modes      = require("voom.modes")
 local state      = require("voom.state")
 local tree       = require("voom.tree")
@@ -1220,9 +1221,14 @@ function M.sort(body_buf, args_string)
   local levels = outline.levels
   local total_body = vim.api.nvim_buf_line_count(body_buf)
 
-  -- Parse options.
+  -- Parse options, falling back to the configured default when the user
+  -- provides no arguments (e.g. sort.default_opts = "i" sorts
+  -- case-insensitively by default).
+  local effective_args = (args_string ~= nil and args_string ~= "") and args_string
+    or (config.options.sort and config.options.sort.default_opts)
+    or config.defaults.sort.default_opts
   local opts = {}
-  for word in (args_string or ""):gmatch("%S+") do
+  for word in effective_args:gmatch("%S+") do
     opts[word] = true
   end
 

@@ -212,7 +212,7 @@ export (`M.truncate_heading`) or move it to a new `lua/voom/util.lua`.
 
 ## Item 5 — Child-count badge on collapsed nodes
 
-- [ ] **Done**
+- [x] **Done**
 
 **File:** `lua/voom/tree.lua`
 
