@@ -42,70 +42,79 @@ T["state"] = MiniTest.new_set()
 T["state"]["register stores body and tree entries"] = function()
   local state = require("voom.state")
   local outline = { bnodes = { 1, 6 }, levels = { 1, 2 }, tlines = {} }
+  local buf = vim.api.nvim_create_buf(false, true)
 
-  -- Use placeholder buffer numbers that don't need to be real.
-  state.register(100, 200, "markdown", outline)
+  state.register(buf, 200, "markdown", outline)
 
-  MiniTest.expect.equality(state.is_body(100), true)
+  MiniTest.expect.equality(state.is_body(buf), true)
   MiniTest.expect.equality(state.is_tree(200), true)
-  MiniTest.expect.equality(state.get_tree(100), 200)
-  MiniTest.expect.equality(state.get_body(200), 100)
+  MiniTest.expect.equality(state.get_tree(buf), 200)
+  MiniTest.expect.equality(state.get_body(200), buf)
 
-  -- Clean up so state is not polluted between tests.
-  state.unregister(100)
+  state.unregister(buf)
+  vim.api.nvim_buf_delete(buf, { force = true })
 end
 
 T["state"]["unregister removes both entries"] = function()
   local state = require("voom.state")
   local outline = { bnodes = { 3 }, levels = { 1 }, tlines = {} }
+  local buf = vim.api.nvim_create_buf(false, true)
 
-  state.register(101, 201, "markdown", outline)
-  state.unregister(101)
+  state.register(buf, 201, "markdown", outline)
+  state.unregister(buf)
 
-  MiniTest.expect.equality(state.is_body(101), false)
+  MiniTest.expect.equality(state.is_body(buf), false)
   MiniTest.expect.equality(state.is_tree(201), false)
+
+  vim.api.nvim_buf_delete(buf, { force = true })
 end
 
 T["state"]["get_outline returns bnodes and levels"] = function()
   local state = require("voom.state")
   local outline = { bnodes = { 1, 10, 20 }, levels = { 1, 2, 3 }, tlines = {} }
+  local buf = vim.api.nvim_create_buf(false, true)
 
-  state.register(102, 202, "markdown", outline)
-  local got = state.get_outline(102)
+  state.register(buf, 202, "markdown", outline)
+  local got = state.get_outline(buf)
 
   MiniTest.expect.equality(got.bnodes, { 1, 10, 20 })
   MiniTest.expect.equality(got.levels, { 1, 2, 3 })
 
-  state.unregister(102)
+  state.unregister(buf)
+  vim.api.nvim_buf_delete(buf, { force = true })
 end
 
 T["state"]["set_outline updates stored outline"] = function()
   local state = require("voom.state")
   local outline = { bnodes = { 1 }, levels = { 1 }, tlines = {} }
+  local buf = vim.api.nvim_create_buf(false, true)
 
-  state.register(103, 203, "markdown", outline)
+  state.register(buf, 203, "markdown", outline)
 
   local new_outline = { bnodes = { 5, 15 }, levels = { 1, 2 } }
-  state.set_outline(103, new_outline)
+  state.set_outline(buf, new_outline)
 
-  local got = state.get_outline(103)
+  local got = state.get_outline(buf)
   MiniTest.expect.equality(got.bnodes, { 5, 15 })
 
-  state.unregister(103)
+  state.unregister(buf)
+  vim.api.nvim_buf_delete(buf, { force = true })
 end
 
 T["state"]["snLn defaults to 1 and can be updated"] = function()
   local state = require("voom.state")
   local outline = { bnodes = {}, levels = {}, tlines = {} }
+  local buf = vim.api.nvim_create_buf(false, true)
 
-  state.register(104, 204, "markdown", outline)
+  state.register(buf, 204, "markdown", outline)
 
-  MiniTest.expect.equality(state.get_snLn(104), 1)
+  MiniTest.expect.equality(state.get_snLn(buf), 1)
 
-  state.set_snLn(104, 7)
-  MiniTest.expect.equality(state.get_snLn(104), 7)
+  state.set_snLn(buf, 7)
+  MiniTest.expect.equality(state.get_snLn(buf), 7)
 
-  state.unregister(104)
+  state.unregister(buf)
+  vim.api.nvim_buf_delete(buf, { force = true })
 end
 
 -- ==============================================================================

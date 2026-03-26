@@ -57,12 +57,7 @@ function M.register(body_buf, tree_buf, mode, outline)
     },
     -- Snapshot the tick so the BufEnter autocmd can detect out-of-band edits
     -- (e.g. changes made while the panel was closed, or edits in another tab).
-    -- pcall guards against tests that register placeholder (non-real) buffer
-    -- numbers; in production body_buf is always a valid live buffer.
-    changedtick = (function()
-      local ok, tick = pcall(vim.api.nvim_buf_get_changedtick, body_buf)
-      return ok and tick or 0
-    end)(),
+    changedtick = vim.api.nvim_buf_get_changedtick(body_buf),
   }
 end
 
