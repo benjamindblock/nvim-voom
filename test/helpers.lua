@@ -93,7 +93,7 @@ end
 --- `post_case` hooks to guarantee a clean slate between tests.
 function H.cleanup_registered_bodies()
   local state = require("voom.state")
-  local bodies = vim.tbl_keys(state.bodies)
+  local bodies = state.registered_body_bufs()
   for _, body_buf in ipairs(bodies) do
     require("voom.tree").close(body_buf)
     H.del_buf(body_buf)

@@ -175,11 +175,11 @@ The public plugin API, commands, keymaps, and user-visible behavior must remain 
 - Current semantics around sibling-group discovery, sorting options (i, r, flip, shuffle), and cursor/selection tracking are preserved unchanged.
 - All 192 contract tests pass with zero failures.
 
-11. **Add explicit state test helpers and migrate tests**
-- Replace test cleanup loops that iterate `state.bodies` directly with explicit helpers designed for tests or low-level inspection.
-- Keep test support narrow and intentional:
-  - Examples: iterate known body buffers, clear registered bodies in tests, inspect a specific body entry through a dedicated helper, or inspect structural history through a test-only helper.
-- Avoid leaving raw mutable tables as the easiest path for tests, or contributors will keep depending on the wrong abstraction boundary.
+11. **Add explicit state test helpers and migrate tests** — COMPLETE
+- Added `state.registered_body_bufs()` to `voom.state` — returns a list of all registered body buffer numbers without exposing the raw `bodies` table.
+- Migrated `test/helpers.lua:cleanup_registered_bodies()` from `vim.tbl_keys(state.bodies)` to `state.registered_body_bufs()`.
+- No other direct `state.bodies` or `state.trees` access exists in test or production code — the earlier Work Item 3 migration already removed all production-side accesses.
+- All 192 contract tests pass with zero failures.
 
 12. **Define invariant handling precisely**
 - Add internal consistency checks only where the behavior is explicitly defined:

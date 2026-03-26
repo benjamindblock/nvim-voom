@@ -141,6 +141,12 @@ function M.set_snLn(body_buf, lnum)
   end
 end
 
+-- Return a list of all currently registered body buffer numbers.
+-- Intended for test cleanup — avoids exposing the raw `bodies` table.
+function M.registered_body_bufs()
+  return vim.tbl_keys(M.bodies)
+end
+
 -- Return the stored changedtick for a body buffer, or nil.
 function M.get_changedtick(body_buf)
   local entry = M.bodies[body_buf]
