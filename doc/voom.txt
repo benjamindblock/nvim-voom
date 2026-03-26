@@ -1,43 +1,326 @@
-*voom.txt*  VOoM — Vim Outliner of Markers (Lua port)
+*voom.txt*  nvim-voom — two-pane outliner for Neovim
 
 ==============================================================================
 INTRODUCTION                                                          *voom*
 
-VOoM is a two-pane outliner plugin for Neovim. It creates a tree buffer
-(the "tree pane") that mirrors the heading structure of the current buffer
-(the "body pane"), enabling fast navigation and reorganization of
-structured documents.
+nvim-voom is a pure Lua port of the Vim plugin VOoM (Vim Outliner of
+Markups).  It creates a read-only tree buffer (the "tree pane") that mirrors
+the heading structure of the current buffer (the "body pane"), enabling fast
+navigation and reorganization of structured documents.
 
-This is a work-in-progress Lua port. For the original Python-based plugin
-documentation, see |legacy/doc/voom.txt| (preserved in the repository).
+This is a work-in-progress Lua port.  The original Python-based plugin is
+preserved as a git submodule at `legacy/` for reference.
 
 ==============================================================================
 INSTALLATION                                                 *voom-install*
 
-Using vim-plug: >
-    Plug 'benjamindblock/VOoM'
+Using lazy.nvim: >lua
+    { "benjamindblock/nvim-voom" }
 <
+Using vim-plug: >vim
+    Plug 'benjamindblock/nvim-voom'
+<
+Any Neovim package manager that adds the plugin to 'runtimepath' will work.
 
 ==============================================================================
 COMMANDS                                                    *voom-commands*
 
+                                                            *:Voom*
 :Voom [mode]        Open the tree pane for the current buffer.
                     [mode] is an optional markup mode name (e.g. "markdown").
+                    When omitted the mode is auto-detected from 'filetype'.
+                    If the tree pane already exists, focus moves to it.
 
-:VoomToggle [mode]  Toggle the tree pane open/closed.
+                                                            *:VoomToggle*
+:VoomToggle [mode]  Toggle the tree pane open/closed.  Accepts the same
+                    optional [mode] argument as |:Voom|.
 
+                                                            *:VoomGrep*
+:VoomGrep {pattern} Search the heading texts of the current body buffer
+                    using a Lua pattern (see |lua-patterns|) and populate
+                    the quickfix list with matching entries.  Opens the
+                    quickfix window automatically when matches are found.
+
+                                                            *:VoomSort*
+:VoomSort [opts]    Sort the sibling nodes of the current heading.  Each
+                    sibling moves together with its entire subtree.  See
+                    |voom-sort| for available options.
+
+                                                            *:Voominfo*
+:Voominfo           Display diagnostic state for the current nvim-voom
+                    session: mode, node count, selected node index, and
+                    heading text.
+
+                                                            *:Voomlog*
+:Voomlog            Open (or focus) the nvim-voom log buffer in a bottom
+                    split.  Log messages are appended by the plugin during
+                    outline operations.
+
+                                                            *:Voomhelp*
 :Voomhelp           Open this help file.
 
-:Voomlog            Open the VOoM log buffer.
+Both |:Voom| and |:VoomToggle| support command-line completion for mode
+names.
 
 ==============================================================================
-KEYMAP NOTES
+MARKUP MODES                                                  *voom-modes*
 
-In the tree pane, structural outline edits can be undone/redone without
-switching to the body pane:
+The markup mode determines how headings are parsed from the body buffer.
+It is detected automatically from 'filetype'; pass an explicit mode name
+to |:Voom| or |:VoomToggle| to override.
 
-    u       Undo last body change.
-    CTRL-R  Redo last undone body change.
+Currently supported:
+
+  markdown~
+    Trigger: `.md` files (filetype "markdown" or "md"), or `:Voom markdown`
+    Styles:  ATX headings (`#` through `######`, levels 1-6)
+             Setext underline headings (`===` / `---`, levels 1-2)
+
+==============================================================================
+TREE PANE                                                  *voom-tree-pane*
+
+Opening nvim-voom splits the window and places a narrow tree pane on the
+left (40 columns by default).  Each line represents one heading; indentation
+depth mirrors heading level: >
+
+    |sample.md
+    |Introduction
+    . |Installation
+    . . |Requirements
+    . . |Platform Notes
+    . |Usage
+    |Advanced Topics
+<
+The tree buffer is read-only.  It refreshes automatically when the body
+buffer is saved (|BufWritePost|) and when you re-enter the body after an
+out-of-band edit (|BufEnter|, via changedtick comparison).
+
+VISUAL ELEMENTS ~
+                                                    *voom-fold-indicators*
+Fold indicators    Each node displays a virtual-text icon reflecting its
+                   fold state:  `▾` (open),  `▶` (closed),  `·` (leaf).
+
+                                                    *voom-indent-guides*
+Indent guides      Vertical lines (`│`) are drawn at each ancestor column
+                   to make nesting depth easy to follow.
+
+                                                    *voom-badges*
+Descendant badges  When a node is folded and has hidden children, a `+N`
+                   badge appears showing how many descendants are collapsed
+                   beneath it.
+
+==============================================================================
+KEYMAPS — TREE PANE                                     *voom-tree-keymaps*
+
+All keymaps below are buffer-local to the tree pane.
+
+NAVIGATION ~
+                                                    *voom-key-cr*
+<CR>            Jump to the heading under the cursor in the body buffer
+                and select it.
+                                                    *voom-key-gO*
+gO              Same as <CR>.
+                                                    *voom-key-tab*
+<Tab>           Switch focus to the body window without changing the
+                selected heading.
+                                                    *voom-key-left*
+<Left>  P       Move cursor to the parent heading.
+                                                    *voom-key-right*
+<Right> o       Open/reveal the current node (unfold if needed), then
+                move cursor to the first child heading.
+                                                    *voom-key-K*
+K               Move cursor to the previous sibling heading.
+                                                    *voom-key-J*
+J               Move cursor to the next sibling heading.
+                                                    *voom-key-U*
+U               Move cursor to the first (topmost) sibling heading.
+                                                    *voom-key-D*
+D               Move cursor to the last (bottommost) sibling heading.
+                                                    *voom-key-eq*
+=               Return cursor to the currently selected heading.
+
+FOLDING ~
+                                                    *voom-key-space*
+<Space>         Toggle fold at cursor (equivalent to |za|).
+                                                    *voom-key-C*
+C               Contract (close) all siblings of the current node.
+                                                    *voom-key-O*
+O               Expand (open) all siblings of the current node.
+
+DISPLAY ~
+                                                    *voom-key-s*
+s               Echo the heading text of the current node to the command
+                line.
+                                                    *voom-key-S*
+S               Echo the full UNL (Unified Node Locator) path and yank
+                it to register "n".  The path uses `>` as a separator:
+                `Head > Sub > Leaf`.
+
+EDITING ~
+                                                    *voom-key-i*
+i               Jump to the body buffer with the cursor on the heading
+                line of the current node.
+                                                    *voom-key-I*
+I               Jump to the body buffer with the cursor on the last line
+                of the current node's body region.
+                                                    *voom-key-aa*
+aa              Insert a new sibling node after the current one.  The
+                cursor lands on the placeholder text `NewHeadline` in the
+                body — use `ciw` to replace it immediately.
+                                                    *voom-key-AA*
+AA              Insert a new child node under the current one.  Same
+                placeholder behavior as |voom-key-aa|.
+                                                    *voom-key-yy*
+yy              Copy the current node and its entire subtree to the
+                plugin clipboard.
+                                                    *voom-key-dd*
+dd              Cut the current node and its entire subtree, storing it
+                in the plugin clipboard.
+                                                    *voom-key-pp*
+pp              Paste the plugin clipboard contents as a sibling after
+                the current node.
+                                                    *voom-key-up*
+^^  <C-Up>      Move the current node (with its subtree) up by swapping
+                it with the previous sibling.
+                                                    *voom-key-down*
+__  <C-Down>    Move the current node (with its subtree) down by swapping
+                it with the next sibling.
+                                                    *voom-key-promote*
+<<  <C-Left>    Promote: decrease heading level by 1.
+                                                    *voom-key-demote*
+>>  <C-Right>   Demote: increase heading level by 1.
+                                                    *voom-key-undo*
+u               Undo the last body change, keeping focus in the tree
+                pane.  Uses the body buffer's native undo tree.
+                                                    *voom-key-redo*
+CTRL-R          Redo the last undone body change, keeping focus in the
+                tree pane.
+
+DISABLED KEYS ~
+
+The following keys are mapped to <Nop> in the tree pane to prevent
+accidental text modification:
+
+    r  R  x  X  zf  zF  zd  zD
+
+==============================================================================
+KEYMAPS — BODY PANE                                     *voom-body-keymaps*
+
+                                                    *voom-body-gO*
+gO              Select the heading that owns the cursor position; syncs
+                the tree highlight and jumps focus to the tree pane.
+
+==============================================================================
+CURSOR FOLLOW                                        *voom-cursor-follow*
+
+Moving the cursor in the tree pane automatically scrolls the body window
+to the corresponding heading, without changing focus.  This is driven by
+a |CursorMoved| autocommand, so all navigation methods — motions,
+searches, mouse clicks — trigger the follow.
+
+==============================================================================
+VOOMGREP                                                    *voom-grep*
+
+|:VoomGrep| {pattern}
+
+Searches the heading texts (not raw body lines) of the current body
+buffer using a Lua pattern (see |lua-patterns|).  Matching headings are
+added to the quickfix list with their body-buffer line numbers.
+
+If matches are found the quickfix window opens automatically.  If no
+headings match, a warning is displayed.
+
+==============================================================================
+VOOMSORT                                                    *voom-sort*
+
+|:VoomSort| [opts]
+
+Sorts the sibling nodes of the current heading.  The sort operates on
+nodes at the same level under the same parent, moving each sibling
+together with its entire subtree.
+
+Options can be combined (space-separated):
+
+    (none)      Alphabetical sort (A-Z)
+    r           Reverse alphabetical sort (Z-A)
+    i           Case-insensitive alphabetical sort
+    i r         Case-insensitive, reverse alphabetical sort
+    flip        Reverse the current sibling order without sorting
+    shuffle     Randomize order (Fisher-Yates shuffle)
+
+==============================================================================
+HIGHLIGHT GROUPS                                       *voom-highlights*
+
+All highlight groups are defined with `default = true`, so colorscheme
+and user overrides take precedence automatically.
+
+  VoomHeading1                                        *hl-VoomHeading1*
+  VoomHeading2                                        *hl-VoomHeading2*
+  VoomHeading3                                        *hl-VoomHeading3*
+  VoomHeading4                                        *hl-VoomHeading4*
+  VoomHeading5                                        *hl-VoomHeading5*
+  VoomHeading6                                        *hl-VoomHeading6*
+    Per-level heading colors in the tree pane.  Linked by default to
+    the treesitter captures `@markup.heading.1.markdown` through
+    `@markup.heading.6.markdown`, so they automatically match your
+    active colorscheme.
+
+  VoomFoldOpen                                        *hl-VoomFoldOpen*
+    Color for the open fold indicator (`▾`).
+    Default: `#7aa2f7` (blue).
+
+  VoomFoldClosed                                      *hl-VoomFoldClosed*
+    Color for the closed fold indicator (`▶`).
+    Default: `#e0af68` (amber).
+
+  VoomLeafNode                                        *hl-VoomLeafNode*
+    Color for the leaf node indicator (`·`).
+    Default: `#565f89` (grey).
+
+  VoomIndentGuide                                     *hl-VoomIndentGuide*
+    Color for vertical indent guide lines (`│`).
+    Default: `#3b4261` (dark grey).
+
+  VoomBadge                                           *hl-VoomBadge*
+    Color for the descendant count badge (`+N`).
+    Default: `#565f89` (italic grey).
+
+Highlight groups are re-applied on |ColorScheme| events, so overrides
+placed in a ColorScheme autocommand persist across colorscheme changes.
+
+Example: >lua
+    vim.api.nvim_set_hl(0, "VoomHeading1", { fg = "#ffffff", bold = true })
+    vim.api.nvim_set_hl(0, "VoomFoldClosed", { fg = "#f7768e" })
+<
+To restore the plugin defaults for a group: >vim
+    :hi clear VoomHeading1
+<
+
+==============================================================================
+PLUGIN CLIPBOARD                                       *voom-clipboard*
+
+nvim-voom maintains its own clipboard, separate from Vim registers.  The
+clipboard stores both the body lines and heading levels of the most
+recently copied or cut subtree.
+
+  |voom-key-yy|   Copy a node and its subtree into the clipboard.
+  |voom-key-dd|   Cut a node and its subtree into the clipboard.
+  |voom-key-pp|   Paste the clipboard contents after the current node.
+
+The clipboard persists for the duration of the Neovim session and is
+shared across all nvim-voom instances.
+
+==============================================================================
+UNDO / REDO                                            *voom-undo*
+
+Structural edits performed from the tree pane (insert, cut, paste, move,
+promote, demote) modify the body buffer and can be undone with the
+standard Neovim undo tree.
+
+The tree-pane keymaps |voom-key-undo| (`u`) and |voom-key-redo|
+(`CTRL-R`) invoke undo/redo on the body buffer without switching focus
+away from the tree pane.  The tree is rebuilt after each undo/redo
+operation to stay in sync.
 
 ==============================================================================
  vim:tw=78:ts=8:ft=help:norl:

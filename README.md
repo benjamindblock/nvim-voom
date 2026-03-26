@@ -1,9 +1,10 @@
 # nvim-voom
 
-`nvim-voom` is a pure Lua port of the Vim plugin VOoM (Vim Outliner of Markups).
-`nvim-voom` is a two-pane outliner plugin for Neovim. It creates a tree buffer
-mirroring the heading structure of the current buffer, enabling fast navigation
-of structured documents.
+`nvim-voom` is a pure Lua port of the Vim plugin
+[VOoM](https://github.com/vim-voom/VOoM) (Vim Outliner of Markups). It is a
+two-pane outliner for Neovim: a read-only tree buffer on the left mirrors the
+heading structure of the current buffer, enabling fast navigation and
+reorganization of structured documents.
 
 > **Status:** This is an in-progress Lua rewrite. The original Python-based
 > plugin is included as a git submodule at `legacy/`
@@ -11,38 +12,48 @@ of structured documents.
 
 ## Installation
 
+Using [lazy.nvim](https://github.com/folke/lazy.nvim):
+
+```lua
+{ "benjamindblock/nvim-voom" }
+```
+
 Using [vim-plug](https://github.com/junegunn/vim-plug):
 
-```neovim
-plug("benjamindblock/nvim-voom")
+```vim
+Plug 'benjamindblock/nvim-voom'
 ```
+
+Any Neovim package manager that adds the plugin to `runtimepath` will work.
 
 ## Commands
 
 ```vim
 :Voom [mode]         " Open the tree pane (auto-detects filetype if mode omitted)
 :VoomToggle [mode]   " Toggle the tree pane open/closed
-:VoomGrep {pattern}  " Search headings for pattern; results go to the quickfix list
+:VoomGrep {pattern}  " Search headings for a Lua pattern; results go to the quickfix list
 :VoomSort [opts]     " Sort sibling nodes under the current heading (see below)
 :Voominfo            " Display state info for the current nvim-voom session
 :Voomlog             " Open the nvim-voom log buffer
 :Voomhelp            " Open the help file
 ```
 
+`:Voom` and `:VoomToggle` support command-line completion for mode names.
+
 ## Supported markup modes
 
 | Mode       | Trigger                         | Heading styles supported              |
 |------------|---------------------------------|---------------------------------------|
-| `markdown` | `.md` files or `:Voom markdown` | `# Hash` headings (levels 1–6) and setext underline headings (`===` / `---`) |
+| `markdown` | `.md` files or `:Voom markdown` | ATX headings (`#` through `######`, levels 1-6) and setext underline headings (`===` / `---`, levels 1-2) |
 
 The mode is detected automatically from the buffer's filetype. Pass an explicit
 mode name to `:Voom` or `:VoomToggle` to override.
 
 ## Tree pane
 
-Opening `nvim-voom` splits the window with a narrow tree pane on the left. Each
-line in the tree represents one heading. Indentation depth mirrors heading
-level:
+Opening `nvim-voom` splits the window with a narrow tree pane on the left
+(40 columns by default). Each line in the tree represents one heading.
+Indentation depth mirrors heading level:
 
 ```
   |sample.md
@@ -57,30 +68,41 @@ level:
 The tree is read-only. It refreshes automatically whenever the body buffer is
 saved, and also when you re-enter the body after an out-of-band edit.
 
+### Visual elements
+
+The tree pane renders several visual aids via extmarks:
+
+- **Fold indicators** — each node shows an icon reflecting its fold state:
+  `▾` (open), `▶` (closed), or `·` (leaf with no children).
+- **Indent guides** — vertical lines (`│`) are drawn at each ancestor column
+  to make nesting depth easy to follow.
+- **Descendant badges** — when a node is folded and has hidden children, a
+  `+N` badge appears showing how many descendants are collapsed beneath it.
+
 ## Keymaps — tree pane
 
 ### Navigation
 
-| Key            | Action                                              |
-|----------------|-----------------------------------------------------|
-| `j` / `k`      | Move cursor up/down (standard Vim motions)          |
-| `<CR>` / `gO`  | Jump to the heading under the cursor in the body    |
-| `<Tab>`        | Switch focus to the body window                     |
-| `<Left>` / `P` | Move cursor to the parent heading                   |
-| `<Right>` / `o`| Open/reveal current node if needed, then move to first child heading |
-| `K`            | Move cursor to the previous sibling heading         |
-| `J`            | Move cursor to the next sibling heading             |
-| `U`            | Move cursor to the first (topmost) sibling heading  |
-| `D`            | Move cursor to the last (bottommost) sibling heading|
-| `=`            | Return cursor to the currently selected heading     |
+| Key             | Action                                              |
+|-----------------|-----------------------------------------------------|
+| `j` / `k`       | Move cursor up/down (standard Vim motions)          |
+| `<CR>` / `gO`   | Jump to the heading under the cursor in the body    |
+| `<Tab>`         | Switch focus to the body window                     |
+| `<Left>` / `P`  | Move cursor to the parent heading                   |
+| `<Right>` / `o` | Open/reveal current node if needed, then move to first child heading |
+| `K`             | Move cursor to the previous sibling heading         |
+| `J`             | Move cursor to the next sibling heading             |
+| `U`             | Move cursor to the first (topmost) sibling heading  |
+| `D`             | Move cursor to the last (bottommost) sibling heading|
+| `=`             | Return cursor to the currently selected heading     |
 
 ### Folding
 
-| Key       | Action                                           |
-|-----------|--------------------------------------------------|
-| `<Space>` | Toggle fold at cursor (`za`)                     |
-| `C`       | Contract (close) all siblings of the current node|
-| `O`       | Expand (open) all siblings of the current node   |
+| Key       | Action                                            |
+|-----------|---------------------------------------------------|
+| `<Space>` | Toggle fold at cursor (`za`)                      |
+| `C`       | Contract (close) all siblings of the current node |
+| `O`       | Expand (open) all siblings of the current node    |
 
 ### Display
 
@@ -125,8 +147,9 @@ clicks — trigger the follow.
 ## VoomGrep
 
 `:VoomGrep {pattern}` searches the heading texts of the current body buffer
-using a Lua pattern and populates the quickfix list with matching entries. Open
-the quickfix list with `:copen` or let `:VoomGrep` open it automatically.
+using a Lua pattern and populates the quickfix list with matching entries.
+If any headings match, the quickfix window opens automatically; if none match,
+a warning is displayed.
 
 ## VoomSort
 
@@ -136,8 +159,8 @@ same parent), moving each node together with its entire subtree.
 
 | Option    | Effect                                      |
 |-----------|---------------------------------------------|
-| _(none)_  | Alphabetical sort (A–Z)                     |
-| `r`       | Reverse alphabetical sort (Z–A)             |
+| _(none)_  | Alphabetical sort (A-Z)                     |
+| `r`       | Reverse alphabetical sort (Z-A)             |
 | `i`       | Case-insensitive alphabetical sort          |
 | `i r`     | Case-insensitive, reverse alphabetical sort |
 | `flip`    | Reverse the current order                   |
@@ -145,34 +168,42 @@ same parent), moving each node together with its entire subtree.
 
 ## Customization
 
-### Heading colors
+### Highlight groups
 
-Each heading level in the tree pane is colored with a dedicated highlight
-group, `VoomHeading1` through `VoomHeading6`. By default these are linked
-to the treesitter markdown heading groups (`@markup.heading.N.markdown`),
-so they automatically match whatever colorscheme you have active (including
-light themes).
+Each heading level in the tree pane uses a dedicated highlight group. By
+default these link to the treesitter markdown heading captures, so they
+automatically match your active colorscheme.
 
-To override the colors, add `vim.api.nvim_set_hl` calls to your Neovim
-config **after** the colorscheme is applied — for example inside a
-`ColorScheme` autocommand or at the bottom of your `init.lua`:
+| Group             | Default link / color       | Purpose                    |
+|-------------------|----------------------------|----------------------------|
+| `VoomHeading1`-`6`| `@markup.heading.N.markdown` | Per-level heading colors |
+| `VoomFoldOpen`    | `#7aa2f7` (blue)           | Open fold indicator (`▾`)  |
+| `VoomFoldClosed`  | `#e0af68` (amber)          | Closed fold indicator (`▶`)|
+| `VoomLeafNode`    | `#565f89` (grey)           | Leaf indicator (`·`)       |
+| `VoomIndentGuide` | `#3b4261` (dark grey)      | Vertical guide lines (`│`) |
+| `VoomBadge`       | `#565f89` (italic grey)    | Descendant count (`+N`)    |
+
+All groups are defined with `default = true`, so any colorscheme or user
+override takes precedence. To customize, add `vim.api.nvim_set_hl` calls
+**after** your colorscheme is applied — for example inside a `ColorScheme`
+autocommand or at the bottom of your `init.lua`:
 
 ```lua
--- Example: bold white for H1, a custom green for H2.
 vim.api.nvim_set_hl(0, "VoomHeading1", { fg = "#ffffff", bold = true })
-vim.api.nvim_set_hl(0, "VoomHeading2", { fg = "#a6e3a1" })
+vim.api.nvim_set_hl(0, "VoomFoldClosed", { fg = "#f7768e" })
 ```
-
-To restore the plugin defaults, clear your overrides with
-`:hi clear VoomHeading1` (repeat for each level you changed), then reload
-the plugin or restart Neovim.
 
 ## Development
 
 Requires [mise](https://mise.jdx.dev/) for tool management.
 
 ```sh
-mise install       # Install luajit, stylua, lua-language-server
-mise run test      # Run the test suite
-mise run fmt       # Format all Lua files
+mise install          # Install lua, stylua, lua-language-server
+mise run test         # Run the full test suite
+mise run test-file <path>  # Run a single spec file
+mise run fmt          # Format all Lua files with StyLua
+mise run fmt-check    # Check formatting without modifying files
 ```
+
+Tests use [mini.test](https://github.com/echasnovski/mini.nvim/blob/main/readmes/mini-test.md)
+(auto-bootstrapped on first run). Specs live in `test/spec/`.
