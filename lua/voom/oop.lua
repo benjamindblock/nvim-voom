@@ -117,9 +117,10 @@
 
 local M = {}
 
-local modes = require("voom.modes")
-local state = require("voom.state")
-local tree = require("voom.tree")
+local modes      = require("voom.modes")
+local state      = require("voom.state")
+local tree       = require("voom.tree")
+local tree_utils = require("voom.tree_utils")
 
 -- ==============================================================================
 -- Module-level clipboard
@@ -200,15 +201,7 @@ end
 -- Internal helpers
 -- ==============================================================================
 
--- Find a window displaying `buf` in the current tab, or nil.
-local function find_win_for_buf(buf)
-  for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-    if vim.api.nvim_win_get_buf(win) == buf then
-      return win
-    end
-  end
-  return nil
-end
+local find_win_for_buf = tree_utils.find_win_for_buf
 
 -- Re-parse the body buffer, update state, refresh the tree display, and
 -- sync the stored changedtick to prevent redundant re-parses from the

@@ -18,9 +18,10 @@
 
 local M = {}
 
-local config = require("voom.config")
-local modes  = require("voom.modes")
-local state  = require("voom.state")
+local config     = require("voom.config")
+local modes      = require("voom.modes")
+local state      = require("voom.state")
+local tree_utils = require("voom.tree_utils")
 
 -- Extmark namespaces created once at module load; Neovim returns the same
 -- integer for repeated calls with the same name.
@@ -53,15 +54,7 @@ local function tree_width()
     or config.defaults.tree_width
 end
 
--- Find a window displaying `buf` in the current tab, or nil.
-local function find_win_for_buf(buf)
-  for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-    if vim.api.nvim_win_get_buf(win) == buf then
-      return win
-    end
-  end
-  return nil
-end
+local find_win_for_buf = tree_utils.find_win_for_buf
 
 -- Write `lines` into `buf`, temporarily enabling modifiability.
 local function write_lines(buf, lines)
@@ -105,16 +98,7 @@ local function build_tree_lines(outline, max_cols)
   return result
 end
 
--- Extract the heading text that appears after the '|' separator in a tree
--- display line.  The format is "  [. ]*|{text}", so the '|' always exists.
--- Returns the empty string for lines without a '|' (should not occur in
--- practice, but defensive is better).
-local function heading_text_from_tree_line(line)
-  -- The text follows the last "· " in the line (greedy match skips all
-  -- indentation dots and lands on the icon-position · before the text).
-  local text = line:match(".*· (.+)$")
-  return text or ""
-end
+local heading_text_from_tree_line = tree_utils.heading_text_from_tree_line
 
 -- ==============================================================================
 -- Fold-state indicator helpers
@@ -458,19 +442,7 @@ local function run_structural_action_with_history(tree_buf, fn)
   history.redo_stack = {}
 end
 
--- Given sorted heading start lines (`bnodes`) and a body cursor line, return
--- the owning tree line number.  Returns 1 (first heading) when the cursor is
--- above all headings — a reasonable fallback for preamble content.
-local function tree_lnum_for_body_line(bnodes, cursor_line)
-  local target_tree_lnum = 1
-  for i = #bnodes, 1, -1 do
-    if bnodes[i] <= cursor_line then
-      target_tree_lnum = i   -- direct 1:1 mapping; no +1 offset for root
-      break
-    end
-  end
-  return target_tree_lnum
-end
+local tree_lnum_for_body_line = tree_utils.tree_lnum_for_body_line
 
 -- ==============================================================================
 -- Navigation

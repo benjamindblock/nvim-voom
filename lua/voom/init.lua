@@ -42,11 +42,10 @@ function M.log_init()
   local buf = ensure_log_buf()
 
   -- Check whether the log buffer is already visible; if so, just focus it.
-  for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-    if vim.api.nvim_win_get_buf(win) == buf then
-      vim.api.nvim_set_current_win(win)
-      return
-    end
+  local existing_win = require("voom.tree_utils").find_win_for_buf(buf)
+  if existing_win then
+    vim.api.nvim_set_current_win(existing_win)
+    return
   end
 
   -- Open a bottom horizontal split and switch it to the log buffer.
@@ -112,13 +111,10 @@ function M.init(args)
   -- If this body already has a tree, focus it instead of creating another.
   local existing_tree = state.get_tree(body_buf)
   if existing_tree then
-    local tree_win = require("voom.tree").find_win_for_buf and nil
-    -- find_win_for_buf is module-private; use a tabpage scan instead.
-    for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-      if vim.api.nvim_win_get_buf(win) == existing_tree then
-        vim.api.nvim_set_current_win(win)
-        return
-      end
+    local tree_utils = require("voom.tree_utils")
+    local tree_win = tree_utils.find_win_for_buf(existing_tree)
+    if tree_win then
+      vim.api.nvim_set_current_win(tree_win)
     end
     return
   end
@@ -219,8 +215,7 @@ function M.grep(args)
   for i, bnode in ipairs(bnodes) do
     local tree_lnum = i
     local raw = vim.api.nvim_buf_get_lines(tree_buf, tree_lnum - 1, tree_lnum, false)[1] or ""
-    -- heading_text_from_tree_line is module-private, replicate its logic here.
-    local text = raw:match(".*· (.+)$") or ""
+    local text = require("voom.tree_utils").heading_text_from_tree_line(raw)
 
     if text:match(args) then
       table.insert(entries, {
@@ -271,7 +266,8 @@ function M.voominfo()
   local headline = "(unknown)"
   if vim.api.nvim_buf_is_valid(tree_buf) then
     local raw = vim.api.nvim_buf_get_lines(tree_buf, snLn - 1, snLn, false)[1] or ""
-    headline = raw:match(".*· (.+)$") or "(unknown)"
+    local extracted = require("voom.tree_utils").heading_text_from_tree_line(raw)
+    headline = extracted ~= "" and extracted or "(unknown)"
   end
 
   local msg = string.format(

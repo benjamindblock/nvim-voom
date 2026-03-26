@@ -102,13 +102,17 @@ The public plugin API, commands, keymaps, and user-visible behavior must remain 
 - `sort` retains its own entry path (resolves body from tree, looks up tree_buf from body).
 - All 192 contract tests pass with zero failures after migration.
 
-6. **Extract shared read-only helpers for derived tree data**
-- Centralize repeated logic that derives user-visible tree data without mutating state:
-  - Heading text extraction from tree lines.
-  - Tree line lookup from body line.
-  - Any shared tree-window lookup that is currently duplicated across modules.
-- Use these helpers in `tree`, `grep`, and `voominfo` so read-only flows are consistent with rendered tree output.
-- Do not couple these helpers to structural edit logic.
+6. **Extract shared read-only helpers for derived tree data** — COMPLETE
+- New `lua/voom/tree_utils.lua` module with three shared read-only helpers:
+  - `find_win_for_buf(buf)` — window lookup by buffer, previously duplicated in `tree.lua`, `oop.lua`, and reimplemented inline in `init.lua`.
+  - `heading_text_from_tree_line(line)` — heading text extraction, previously private in `tree.lua` and replicated inline in `init.lua` (`grep` and `voominfo`).
+  - `tree_lnum_for_body_line(bnodes, cursor_line)` — tree line lookup from body line, previously private in `tree.lua` (exposed for cross-module use).
+- Consumers updated:
+  - `tree.lua`: imports all three helpers from `tree_utils` via local aliases (drop-in replacement for the former module-private functions).
+  - `oop.lua`: imports `find_win_for_buf` from `tree_utils`, removing its duplicate definition.
+  - `init.lua`: uses `tree_utils.find_win_for_buf` in `init()` and `log_init()`, and `tree_utils.heading_text_from_tree_line` in `grep()` and `voominfo()`, replacing all inline reimplementations.
+- Module is strictly read-only — no coupling to structural edit logic.
+- All 192 contract tests pass with zero failures.
 
 7. **Extract shared OOP primitives around context resolution and body writes**
 - Acknowledge existing local helpers in `oop.lua` that already handle some of this work:
