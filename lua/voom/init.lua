@@ -6,6 +6,13 @@
 
 local M = {}
 
+local config = require("voom.config")
+
+-- Allow users to customise VOoM by calling require("voom").setup({...}).
+-- Delegates directly to config.setup, which deep-merges user_opts over
+-- config.defaults and stores the result in config.options.
+M.setup = config.setup
+
 -- ==============================================================================
 -- Log buffer
 -- ==============================================================================

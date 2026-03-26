@@ -26,6 +26,29 @@ Plug 'benjamindblock/nvim-voom'
 
 Any Neovim package manager that adds the plugin to `runtimepath` will work.
 
+## Configuration
+
+Call `require("voom").setup({...})` anywhere in your init file after the
+plugin loads to override defaults:
+
+```lua
+require("voom").setup({
+  tree_width   = 40,         -- width of the tree pane in columns
+  default_mode = "markdown", -- markup mode used when none can be auto-detected
+  fold_indicators = {
+    enabled = true,
+    icons   = { open = "▾", closed = "▶", leaf = "·" },
+  },
+  indent_guides = {
+    enabled = true,
+    char    = "│",            -- U+2502 box-drawing vertical bar
+  },
+})
+```
+
+`setup()` is optional — all options have sensible defaults and the plugin
+works without any explicit configuration.
+
 ## Commands
 
 ```vim

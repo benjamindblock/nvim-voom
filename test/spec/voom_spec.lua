@@ -28,6 +28,20 @@ T["config"]["has default mode"] = function()
   MiniTest.expect.equality(config.defaults.default_mode, "markdown")
 end
 
+T["config"]["setup() is exposed on public API"] = function()
+  local voom = require("voom")
+  MiniTest.expect.equality(type(voom.setup), "function")
+end
+
+T["config"]["setup() merges user opts into config.options"] = function()
+  local voom   = require("voom")
+  local config = require("voom.config")
+  voom.setup({ tree_width = 55 })
+  MiniTest.expect.equality(config.options.tree_width, 55)
+  -- Restore defaults so other tests are unaffected.
+  voom.setup({})
+end
+
 -- ==============================================================================
 -- complete()
 -- ==============================================================================

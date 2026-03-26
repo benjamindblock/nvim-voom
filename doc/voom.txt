@@ -23,6 +23,32 @@ Using vim-plug: >vim
 Any Neovim package manager that adds the plugin to 'runtimepath' will work.
 
 ==============================================================================
+CONFIGURATION                                              *voom-config*
+
+Call `require("voom").setup({})` to override defaults.  All keys are optional;
+omitting `setup()` entirely leaves all defaults in effect.
+
+    require("voom").setup({
+        -- Width of the tree pane in columns.
+        tree_width = 40,
+
+        -- Default markup mode when none can be auto-detected from 'filetype'.
+        default_mode = "markdown",
+
+        -- Virtual-text fold-state indicators shown next to tree nodes.
+        fold_indicators = {
+            enabled = true,
+            icons   = { open = "▾", closed = "▶", leaf = "·" },
+        },
+
+        -- Vertical indent-guide lines rendered at each ancestor column.
+        indent_guides = {
+            enabled = true,
+            char    = "│",   -- U+2502 box-drawing vertical bar
+        },
+    })
+
+==============================================================================
 COMMANDS                                                    *voom-commands*
 
                                                             *:Voom*
