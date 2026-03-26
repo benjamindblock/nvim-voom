@@ -1079,29 +1079,25 @@ end
 -- Body keymap setup
 -- ==============================================================================
 
--- Install normal-mode keymaps on the body buffer for tree interaction.
+-- Install a single normal-mode keymap on the body buffer for tree interaction.
 --
--- <Return> — select the tree node for the current body cursor position
--- <Tab>    — switch focus to the tree window (without changing position)
+-- gO  — select the heading that owns the cursor, then jump to it in the tree.
 --
--- These are intentionally minimal; the user can always navigate back via
--- the tree keymaps.  We avoid clobbering more keys in the body because it
--- is the user's primary editing buffer.
+-- This replaces the former <CR> + <Tab> pair:
+--   * <CR> would call body_select() but stay in the body window
+--   * <Tab> would then switch focus to the tree
+-- Collapsing them into one chord avoids clobbering <CR> (vital in help/quickfix
+-- buffers) and <Tab> (used by snippet engines and completion plugins) on the
+-- user's primary editing buffer.
 function M.setup_body_keymaps(body_buf, tree_buf)
-  vim.api.nvim_buf_set_keymap(body_buf, "n", "<CR>", "", {
+  vim.api.nvim_buf_set_keymap(body_buf, "n", "gO", "", {
     noremap  = true,
     silent   = true,
     callback = function()
       M.body_select(body_buf)
-    end,
-  })
-
-  vim.api.nvim_buf_set_keymap(body_buf, "n", "<Tab>", "", {
-    noremap  = true,
-    silent   = true,
-    callback = function()
-      -- Just switch focus; the tree cursor is already kept in sync by
-      -- the CursorMoved autocmd and body_select.
+      -- Switch focus after syncing the tree cursor; body_select() has already
+      -- moved the tree cursor to the right position, so no further positioning
+      -- is needed.
       local tree_win = find_win_for_buf(tree_buf)
       if tree_win then
         vim.api.nvim_set_current_win(tree_win)
@@ -1117,14 +1113,22 @@ end
 function M.set_keymaps(tree_buf, body_buf)
   local opts = { noremap = true, silent = true }
 
-  -- <CR>: navigate to the heading corresponding to the cursor line.
+  -- <CR> / gO: navigate to the heading corresponding to the cursor line.
+  -- gO mirrors the body-pane binding so the key is reciprocal: gO in the body
+  -- jumps to the outline node; gO in the tree jumps back to the heading.
+  local function goto_body()
+    local lnum = vim.api.nvim_win_get_cursor(0)[1]
+    M.navigate_to_body(tree_buf, lnum)
+  end
   vim.api.nvim_buf_set_keymap(tree_buf, "n", "<CR>", "", {
     noremap  = true,
     silent   = true,
-    callback = function()
-      local lnum = vim.api.nvim_win_get_cursor(0)[1]
-      M.navigate_to_body(tree_buf, lnum)
-    end,
+    callback = goto_body,
+  })
+  vim.api.nvim_buf_set_keymap(tree_buf, "n", "gO", "", {
+    noremap  = true,
+    silent   = true,
+    callback = goto_body,
   })
 
   -- <Tab>: move focus to the body window without re-running navigation.

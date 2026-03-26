@@ -64,7 +64,7 @@ saved, and also when you re-enter the body after an out-of-band edit.
 | Key            | Action                                              |
 |----------------|-----------------------------------------------------|
 | `j` / `k`      | Move cursor up/down (standard Vim motions)          |
-| `<CR>`         | Jump to the heading under the cursor in the body    |
+| `<CR>` / `gO`  | Jump to the heading under the cursor in the body    |
 | `<Tab>`        | Switch focus to the body window                     |
 | `<Left>` / `P` | Move cursor to the parent heading                   |
 | `<Right>` / `o`| Open/reveal current node if needed, then move to first child heading |
@@ -111,10 +111,9 @@ text `NewHeadline` in the body buffer — use `ciw` to replace it immediately.
 
 ## Keymaps — body pane
 
-| Key    | Action                                                               |
-|--------|----------------------------------------------------------------------|
-| `<CR>` | Select the heading that owns the cursor; syncs the tree to that node |
-| `<Tab>`| Switch focus to the tree pane                                        |
+| Key  | Action                                                                  |
+|------|-------------------------------------------------------------------------|
+| `gO` | Select the heading that owns the cursor; syncs the tree and jumps to it |
 
 ## Live cursor-follow
 
