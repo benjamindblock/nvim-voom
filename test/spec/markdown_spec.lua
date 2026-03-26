@@ -1,19 +1,6 @@
+local H = dofile("test/helpers.lua")
+
 local T = MiniTest.new_set()
-
--- ==============================================================================
--- Helpers
--- ==============================================================================
-
--- Load a fixture file into a 1-indexed table of strings (no trailing newline
--- per line), matching the format that nvim_buf_get_lines() returns.
-local function load_fixture(name)
-  local path = vim.fn.getcwd() .. "/test/fixtures/" .. name
-  local lines = {}
-  for line in io.lines(path) do
-    table.insert(lines, line)
-  end
-  return lines
-end
 
 -- ==============================================================================
 -- Module loading
@@ -174,7 +161,7 @@ T["fixture"] = MiniTest.new_set()
 
 T["fixture"]["parses expected heading count"] = function()
   local md = require("voom.modes.markdown")
-  local lines = load_fixture("sample.md")
+  local lines = H.load_fixture("sample.md")
   local result = md.make_outline(lines, "sample.md")
   -- sample.md has 10 headings: 4 hash (levels 1,1,2,6) + 4 hash nested
   -- (levels 2,3,3,2) + 2 underline (levels 1,2). See fixture for details.
@@ -183,7 +170,7 @@ end
 
 T["fixture"]["first heading is Project Overview at level 1"] = function()
   local md = require("voom.modes.markdown")
-  local lines = load_fixture("sample.md")
+  local lines = H.load_fixture("sample.md")
   local result = md.make_outline(lines, "sample.md")
   MiniTest.expect.equality(result.tlines[1], " · Project Overview")
   MiniTest.expect.equality(result.levels[1], 1)
@@ -192,7 +179,7 @@ end
 
 T["fixture"]["underline heading detected in results"] = function()
   local md = require("voom.modes.markdown")
-  local lines = load_fixture("sample.md")
+  local lines = H.load_fixture("sample.md")
   local result = md.make_outline(lines, "sample.md")
   local found = false
   for _, t in ipairs(result.tlines) do
@@ -207,7 +194,7 @@ end
 T["fixture"]["use_hash false because first heading is hash style"] = function()
   -- sample.md starts with "# Project Overview" so use_hash should be true.
   local md = require("voom.modes.markdown")
-  local lines = load_fixture("sample.md")
+  local lines = H.load_fixture("sample.md")
   local result = md.make_outline(lines, "sample.md")
   MiniTest.expect.equality(result.use_hash, true)
 end

@@ -1,90 +1,6 @@
+local H = dofile("test/helpers.lua")
+
 local T = MiniTest.new_set()
-
--- ==============================================================================
--- Helpers
--- ==============================================================================
-
-local function load_fixture(name)
-  local path = vim.fn.getcwd() .. "/test/fixtures/" .. name
-  local lines = {}
-  for line in io.lines(path) do
-    table.insert(lines, line)
-  end
-  return lines
-end
-
-local function make_scratch_buf(lines, name)
-  local buf = vim.api.nvim_create_buf(false, true)
-  if name then
-    vim.api.nvim_buf_set_name(buf, name)
-  end
-  vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
-  return buf
-end
-
-local function del_buf(buf)
-  if buf and vim.api.nvim_buf_is_valid(buf) then
-    vim.api.nvim_buf_delete(buf, { force = true })
-  end
-end
-
-local function find_win_for_buf(buf)
-  for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-    if vim.api.nvim_win_get_buf(win) == buf then
-      return win
-    end
-  end
-  return nil
-end
-
-local function cleanup_registered_bodies()
-  local state = require("voom.state")
-  local bodies = vim.tbl_keys(state.bodies)
-  for _, body_buf in ipairs(bodies) do
-    require("voom.tree").close(body_buf)
-    del_buf(body_buf)
-  end
-end
-
-local function with_captured_echo(fn)
-  local calls = {}
-  local orig = vim.api.nvim_echo
-  vim.api.nvim_echo = function(chunks, history, opts)
-    table.insert(calls, {
-      chunks = vim.deepcopy(chunks),
-      history = history,
-      opts = opts,
-    })
-  end
-
-  local ok, err = pcall(fn, calls)
-  vim.api.nvim_echo = orig
-  if not ok then
-    error(err)
-  end
-  return calls
-end
-
--- Build a simple markdown document with known structure for testing.
-local function simple_doc()
-  return {
-    "# Heading One",
-    "",
-    "Content under one.",
-    "",
-    "## Sub A",
-    "",
-    "Content under Sub A.",
-    "",
-    "## Sub B",
-    "",
-    "Content under Sub B.",
-    "",
-    "# Heading Two",
-    "",
-    "Content under two.",
-  }
-end
 
 -- ==============================================================================
 -- Module loading
@@ -210,36 +126,22 @@ end
 -- ==============================================================================
 
 T["edit_node"] = MiniTest.new_set({
-  hooks = {
-    post_case = function()
-      local state = require("voom.state")
-      for body_buf, _ in pairs(state.bodies) do
-        require("voom.tree").close(body_buf)
-        del_buf(body_buf)
-      end
-    end,
-  },
+  hooks = H.clean_hooks(),
 })
 
 T["edit_node"]["i jumps to heading line in body"] = function()
   local tree_mod = require("voom.tree")
   local oop = require("voom.oop")
 
-  local lines = simple_doc()
-  local buf = make_scratch_buf(lines, "edit_i_test.md")
+  local lines = H.simple_doc()
+  local buf = H.make_scratch_buf(lines, "edit_i_test.md")
 
   -- Need to display the buffer in a window for tree creation.
   vim.api.nvim_set_current_buf(buf)
   local tree_buf = tree_mod.create(buf, "markdown")
 
   -- Navigate tree to "Sub A" (tree line 2: H1=1, SubA=2).
-  local tree_win
-  for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-    if vim.api.nvim_win_get_buf(w) == tree_buf then
-      tree_win = w
-      break
-    end
-  end
+  local tree_win = H.find_win_for_buf(tree_buf)
   if tree_win then
     vim.api.nvim_set_current_win(tree_win)
     vim.api.nvim_win_set_cursor(tree_win, { 2, 0 })
@@ -258,18 +160,12 @@ T["edit_node"]["I jumps to last line of heading region"] = function()
   local tree_mod = require("voom.tree")
   local oop = require("voom.oop")
 
-  local lines = simple_doc()
-  local buf = make_scratch_buf(lines, "edit_I_test.md")
+  local lines = H.simple_doc()
+  local buf = H.make_scratch_buf(lines, "edit_I_test.md")
   vim.api.nvim_set_current_buf(buf)
   local tree_buf = tree_mod.create(buf, "markdown")
 
-  local tree_win
-  for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-    if vim.api.nvim_win_get_buf(w) == tree_buf then
-      tree_win = w
-      break
-    end
-  end
+  local tree_win = H.find_win_for_buf(tree_buf)
   if tree_win then
     vim.api.nvim_set_current_win(tree_win)
     -- "Sub A" is tree line 2.  Its region ends at line 8 (before "## Sub B" at line 9).
@@ -286,18 +182,12 @@ T["edit_node"]["I on last heading jumps to end of buffer"] = function()
   local tree_mod = require("voom.tree")
   local oop = require("voom.oop")
 
-  local lines = simple_doc()
-  local buf = make_scratch_buf(lines, "edit_I_last.md")
+  local lines = H.simple_doc()
+  local buf = H.make_scratch_buf(lines, "edit_I_last.md")
   vim.api.nvim_set_current_buf(buf)
   local tree_buf = tree_mod.create(buf, "markdown")
 
-  local tree_win
-  for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-    if vim.api.nvim_win_get_buf(w) == tree_buf then
-      tree_win = w
-      break
-    end
-  end
+  local tree_win = H.find_win_for_buf(tree_buf)
 
   -- "Heading Two" is tree line 4 (H1=1, SubA=2, SubB=3, H2=4).
   if tree_win then
@@ -314,18 +204,12 @@ T["edit_node"]["i on first heading jumps to body line 1"] = function()
   local tree_mod = require("voom.tree")
   local oop = require("voom.oop")
 
-  local lines = simple_doc()
-  local buf = make_scratch_buf(lines, "edit_first.md")
+  local lines = H.simple_doc()
+  local buf = H.make_scratch_buf(lines, "edit_first.md")
   vim.api.nvim_set_current_buf(buf)
   local tree_buf = tree_mod.create(buf, "markdown")
 
-  local tree_win
-  for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-    if vim.api.nvim_win_get_buf(w) == tree_buf then
-      tree_win = w
-      break
-    end
-  end
+  local tree_win = H.find_win_for_buf(tree_buf)
 
   -- Tree line 1 is now "Heading One" (the first H1); no root node exists.
   if tree_win then
@@ -346,33 +230,19 @@ end
 -- ==============================================================================
 
 T["insert_node"] = MiniTest.new_set({
-  hooks = {
-    post_case = function()
-      local state = require("voom.state")
-      for body_buf, _ in pairs(state.bodies) do
-        require("voom.tree").close(body_buf)
-        del_buf(body_buf)
-      end
-    end,
-  },
+  hooks = H.clean_hooks(),
 })
 
 T["insert_node"]["aa inserts sibling at same level"] = function()
   local tree_mod = require("voom.tree")
   local oop = require("voom.oop")
 
-  local lines = simple_doc()
-  local buf = make_scratch_buf(lines, "insert_aa.md")
+  local lines = H.simple_doc()
+  local buf = H.make_scratch_buf(lines, "insert_aa.md")
   vim.api.nvim_set_current_buf(buf)
   local tree_buf = tree_mod.create(buf, "markdown")
 
-  local tree_win
-  for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-    if vim.api.nvim_win_get_buf(w) == tree_buf then
-      tree_win = w
-      break
-    end
-  end
+  local tree_win = H.find_win_for_buf(tree_buf)
 
   -- Position on "Sub A" (tree line 2, level 2).
   if tree_win then
@@ -398,18 +268,12 @@ T["insert_node"]["AA inserts child at level+1"] = function()
   local tree_mod = require("voom.tree")
   local oop = require("voom.oop")
 
-  local lines = simple_doc()
-  local buf = make_scratch_buf(lines, "insert_AA.md")
+  local lines = H.simple_doc()
+  local buf = H.make_scratch_buf(lines, "insert_AA.md")
   vim.api.nvim_set_current_buf(buf)
   local tree_buf = tree_mod.create(buf, "markdown")
 
-  local tree_win
-  for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-    if vim.api.nvim_win_get_buf(w) == tree_buf then
-      tree_win = w
-      break
-    end
-  end
+  local tree_win = H.find_win_for_buf(tree_buf)
 
   -- Position on "Heading One" (tree line 1, level 1).
   if tree_win then
@@ -436,10 +300,10 @@ T["insert_node"]["moves focus to body, selects new node, and syncs changedtick"]
   local oop = require("voom.oop")
   local state = require("voom.state")
 
-  local buf = make_scratch_buf({ "# One", "", "## Two" }, "insert_focus.md")
+  local buf = H.make_scratch_buf({ "# One", "", "## Two" }, "insert_focus.md")
   vim.api.nvim_set_current_buf(buf)
   local tree_buf = tree_mod.create(buf, "markdown")
-  local tree_win = find_win_for_buf(tree_buf)
+  local tree_win = H.find_win_for_buf(tree_buf)
 
   vim.api.nvim_set_current_win(tree_win)
   vim.api.nvim_win_set_cursor(tree_win, { 2, 0 })
@@ -465,13 +329,7 @@ T["copy_node"] = MiniTest.new_set({
     pre_case = function()
       require("voom.oop").clear_clipboard()
     end,
-    post_case = function()
-      local state = require("voom.state")
-      for body_buf, _ in pairs(state.bodies) do
-        require("voom.tree").close(body_buf)
-        del_buf(body_buf)
-      end
-    end,
+    post_case = H.cleanup_registered_bodies,
   },
 })
 
@@ -479,18 +337,12 @@ T["copy_node"]["stores body lines in clipboard"] = function()
   local tree_mod = require("voom.tree")
   local oop = require("voom.oop")
 
-  local lines = simple_doc()
-  local buf = make_scratch_buf(lines, "copy_test.md")
+  local lines = H.simple_doc()
+  local buf = H.make_scratch_buf(lines, "copy_test.md")
   vim.api.nvim_set_current_buf(buf)
   local tree_buf = tree_mod.create(buf, "markdown")
 
-  local tree_win
-  for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-    if vim.api.nvim_win_get_buf(w) == tree_buf then
-      tree_win = w
-      break
-    end
-  end
+  local tree_win = H.find_win_for_buf(tree_buf)
 
   -- Copy "Sub A" (tree line 2).  Its body range is lines 5-8.
   if tree_win then
@@ -511,18 +363,12 @@ T["copy_node"]["does not modify body buffer"] = function()
   local tree_mod = require("voom.tree")
   local oop = require("voom.oop")
 
-  local lines = simple_doc()
-  local buf = make_scratch_buf(lines, "copy_nomod.md")
+  local lines = H.simple_doc()
+  local buf = H.make_scratch_buf(lines, "copy_nomod.md")
   vim.api.nvim_set_current_buf(buf)
   local tree_buf = tree_mod.create(buf, "markdown")
 
-  local tree_win
-  for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-    if vim.api.nvim_win_get_buf(w) == tree_buf then
-      tree_win = w
-      break
-    end
-  end
+  local tree_win = H.find_win_for_buf(tree_buf)
   if tree_win then
     vim.api.nvim_set_current_win(tree_win)
     vim.api.nvim_win_set_cursor(tree_win, { 2, 0 })
@@ -542,18 +388,12 @@ T["copy_node"]["copies subtree with children"] = function()
   local tree_mod = require("voom.tree")
   local oop = require("voom.oop")
 
-  local lines = simple_doc()
-  local buf = make_scratch_buf(lines, "copy_subtree.md")
+  local lines = H.simple_doc()
+  local buf = H.make_scratch_buf(lines, "copy_subtree.md")
   vim.api.nvim_set_current_buf(buf)
   local tree_buf = tree_mod.create(buf, "markdown")
 
-  local tree_win
-  for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-    if vim.api.nvim_win_get_buf(w) == tree_buf then
-      tree_win = w
-      break
-    end
-  end
+  local tree_win = H.find_win_for_buf(tree_buf)
 
   -- Copy "Heading One" (tree line 1, has children Sub A and Sub B).
   if tree_win then
@@ -582,13 +422,7 @@ T["cut_node"] = MiniTest.new_set({
     pre_case = function()
       require("voom.oop").clear_clipboard()
     end,
-    post_case = function()
-      local state = require("voom.state")
-      for body_buf, _ in pairs(state.bodies) do
-        require("voom.tree").close(body_buf)
-        del_buf(body_buf)
-      end
-    end,
+    post_case = H.cleanup_registered_bodies,
   },
 })
 
@@ -596,19 +430,13 @@ T["cut_node"]["removes node from body and stores in clipboard"] = function()
   local tree_mod = require("voom.tree")
   local oop = require("voom.oop")
 
-  local lines = simple_doc()
+  local lines = H.simple_doc()
   local original_count = #lines
-  local buf = make_scratch_buf(lines, "cut_test.md")
+  local buf = H.make_scratch_buf(lines, "cut_test.md")
   vim.api.nvim_set_current_buf(buf)
   local tree_buf = tree_mod.create(buf, "markdown")
 
-  local tree_win
-  for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-    if vim.api.nvim_win_get_buf(w) == tree_buf then
-      tree_win = w
-      break
-    end
-  end
+  local tree_win = H.find_win_for_buf(tree_buf)
 
   -- Cut "Sub A" (tree line 2).
   if tree_win then
@@ -643,19 +471,13 @@ T["cut_node"]["cutting first heading removes it from body"] = function()
 
   -- Tree line 1 is now "Heading One" (a real heading, not a root node).
   -- Cutting it should remove it and its children from the body.
-  local lines = simple_doc()
+  local lines = H.simple_doc()
   local original_count = #lines
-  local buf = make_scratch_buf(lines, "cut_first.md")
+  local buf = H.make_scratch_buf(lines, "cut_first.md")
   vim.api.nvim_set_current_buf(buf)
   local tree_buf = tree_mod.create(buf, "markdown")
 
-  local tree_win
-  for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-    if vim.api.nvim_win_get_buf(w) == tree_buf then
-      tree_win = w
-      break
-    end
-  end
+  local tree_win = H.find_win_for_buf(tree_buf)
   if tree_win then
     vim.api.nvim_set_current_win(tree_win)
     vim.api.nvim_win_set_cursor(tree_win, { 1, 0 })
@@ -680,18 +502,12 @@ T["cut_node"]["cuts subtree including children"] = function()
   local tree_mod = require("voom.tree")
   local oop = require("voom.oop")
 
-  local lines = simple_doc()
-  local buf = make_scratch_buf(lines, "cut_subtree.md")
+  local lines = H.simple_doc()
+  local buf = H.make_scratch_buf(lines, "cut_subtree.md")
   vim.api.nvim_set_current_buf(buf)
   local tree_buf = tree_mod.create(buf, "markdown")
 
-  local tree_win
-  for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-    if vim.api.nvim_win_get_buf(w) == tree_buf then
-      tree_win = w
-      break
-    end
-  end
+  local tree_win = H.find_win_for_buf(tree_buf)
 
   -- Cut "Heading One" (tree line 1) — includes Sub A and Sub B.
   if tree_win then
@@ -721,7 +537,7 @@ T["cut_node"]["keeps focus in tree, selects previous node, and syncs changedtick
   local oop = require("voom.oop")
   local state = require("voom.state")
 
-  local buf = make_scratch_buf({
+  local buf = H.make_scratch_buf({
     "# One",
     "",
     "## Two",
@@ -732,7 +548,7 @@ T["cut_node"]["keeps focus in tree, selects previous node, and syncs changedtick
   }, "cut_focus.md")
   vim.api.nvim_set_current_buf(buf)
   local tree_buf = tree_mod.create(buf, "markdown")
-  local tree_win = find_win_for_buf(tree_buf)
+  local tree_win = H.find_win_for_buf(tree_buf)
 
   vim.api.nvim_set_current_win(tree_win)
   vim.api.nvim_win_set_cursor(tree_win, { 2, 0 })
@@ -756,13 +572,7 @@ T["paste_node"] = MiniTest.new_set({
     pre_case = function()
       require("voom.oop").clear_clipboard()
     end,
-    post_case = function()
-      local state = require("voom.state")
-      for body_buf, _ in pairs(state.bodies) do
-        require("voom.tree").close(body_buf)
-        del_buf(body_buf)
-      end
-    end,
+    post_case = H.cleanup_registered_bodies,
   },
 })
 
@@ -770,8 +580,8 @@ T["paste_node"]["no-op with empty clipboard"] = function()
   local tree_mod = require("voom.tree")
   local oop = require("voom.oop")
 
-  local lines = simple_doc()
-  local buf = make_scratch_buf(lines, "paste_empty.md")
+  local lines = H.simple_doc()
+  local buf = H.make_scratch_buf(lines, "paste_empty.md")
   vim.api.nvim_set_current_buf(buf)
   local tree_buf = tree_mod.create(buf, "markdown")
 
@@ -786,11 +596,11 @@ T["paste_node"]["empty clipboard emits warning message"] = function()
   local tree_mod = require("voom.tree")
   local oop = require("voom.oop")
 
-  local buf = make_scratch_buf(simple_doc(), "paste_empty_warn.md")
+  local buf = H.make_scratch_buf(H.simple_doc(), "paste_empty_warn.md")
   vim.api.nvim_set_current_buf(buf)
   local tree_buf = tree_mod.create(buf, "markdown")
 
-  local echoes = with_captured_echo(function()
+  local echoes = H.with_captured_echo(function()
     oop.paste_node(tree_buf)
   end)
 
@@ -803,18 +613,12 @@ T["paste_node"]["cut then paste round-trip preserves content"] = function()
   local tree_mod = require("voom.tree")
   local oop = require("voom.oop")
 
-  local lines = simple_doc()
-  local buf = make_scratch_buf(lines, "paste_roundtrip.md")
+  local lines = H.simple_doc()
+  local buf = H.make_scratch_buf(lines, "paste_roundtrip.md")
   vim.api.nvim_set_current_buf(buf)
   local tree_buf = tree_mod.create(buf, "markdown")
 
-  local tree_win
-  for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-    if vim.api.nvim_win_get_buf(w) == tree_buf then
-      tree_win = w
-      break
-    end
-  end
+  local tree_win = H.find_win_for_buf(tree_buf)
 
   -- Cut "Sub A" (tree line 2).
   if tree_win then
@@ -854,10 +658,10 @@ T["paste_node"]["keeps focus in tree, selects first pasted node, and syncs chang
   local oop = require("voom.oop")
   local state = require("voom.state")
 
-  local buf = make_scratch_buf(simple_doc(), "paste_focus.md")
+  local buf = H.make_scratch_buf(H.simple_doc(), "paste_focus.md")
   vim.api.nvim_set_current_buf(buf)
   local tree_buf = tree_mod.create(buf, "markdown")
-  local tree_win = find_win_for_buf(tree_buf)
+  local tree_win = H.find_win_for_buf(tree_buf)
 
   vim.api.nvim_set_current_win(tree_win)
   vim.api.nvim_win_set_cursor(tree_win, { 2, 0 })
@@ -878,7 +682,7 @@ T["paste_node"]["invalid clipboard emits error and leaves body unchanged"] = fun
   local tree_mod = require("voom.tree")
   local oop = require("voom.oop")
 
-  local buf = make_scratch_buf(simple_doc(), "paste_invalid.md")
+  local buf = H.make_scratch_buf(H.simple_doc(), "paste_invalid.md")
   vim.api.nvim_set_current_buf(buf)
   local tree_buf = tree_mod.create(buf, "markdown")
 
@@ -887,7 +691,7 @@ T["paste_node"]["invalid clipboard emits error and leaves body unchanged"] = fun
   clipboard.levels = { 1 }
 
   local before = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-  local echoes = with_captured_echo(function()
+  local echoes = H.with_captured_echo(function()
     oop.paste_node(tree_buf)
   end)
   local after = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
@@ -906,33 +710,19 @@ end
 -- ==============================================================================
 
 T["promote"] = MiniTest.new_set({
-  hooks = {
-    post_case = function()
-      local state = require("voom.state")
-      for body_buf, _ in pairs(state.bodies) do
-        require("voom.tree").close(body_buf)
-        del_buf(body_buf)
-      end
-    end,
-  },
+  hooks = H.clean_hooks(),
 })
 
 T["promote"]["decreases heading level by 1"] = function()
   local tree_mod = require("voom.tree")
   local oop = require("voom.oop")
 
-  local lines = simple_doc()
-  local buf = make_scratch_buf(lines, "promote_test.md")
+  local lines = H.simple_doc()
+  local buf = H.make_scratch_buf(lines, "promote_test.md")
   vim.api.nvim_set_current_buf(buf)
   local tree_buf = tree_mod.create(buf, "markdown")
 
-  local tree_win
-  for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-    if vim.api.nvim_win_get_buf(w) == tree_buf then
-      tree_win = w
-      break
-    end
-  end
+  local tree_win = H.find_win_for_buf(tree_buf)
 
   -- Promote "Sub A" (tree line 2, level 2 → level 1).
   if tree_win then
@@ -958,18 +748,12 @@ T["promote"]["no-op when already at level 1"] = function()
   local tree_mod = require("voom.tree")
   local oop = require("voom.oop")
 
-  local lines = simple_doc()
-  local buf = make_scratch_buf(lines, "promote_noop.md")
+  local lines = H.simple_doc()
+  local buf = H.make_scratch_buf(lines, "promote_noop.md")
   vim.api.nvim_set_current_buf(buf)
   local tree_buf = tree_mod.create(buf, "markdown")
 
-  local tree_win
-  for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-    if vim.api.nvim_win_get_buf(w) == tree_buf then
-      tree_win = w
-      break
-    end
-  end
+  local tree_win = H.find_win_for_buf(tree_buf)
 
   -- "Heading One" is tree line 1, level 1.
   if tree_win then
@@ -990,15 +774,15 @@ T["promote"]["top-level no-op emits warning message"] = function()
   local tree_mod = require("voom.tree")
   local oop = require("voom.oop")
 
-  local buf = make_scratch_buf(simple_doc(), "promote_warn.md")
+  local buf = H.make_scratch_buf(H.simple_doc(), "promote_warn.md")
   vim.api.nvim_set_current_buf(buf)
   local tree_buf = tree_mod.create(buf, "markdown")
-  local tree_win = find_win_for_buf(tree_buf)
+  local tree_win = H.find_win_for_buf(tree_buf)
 
   vim.api.nvim_set_current_win(tree_win)
   vim.api.nvim_win_set_cursor(tree_win, { 1, 0 })
 
-  local echoes = with_captured_echo(function()
+  local echoes = H.with_captured_echo(function()
     oop.promote(tree_buf)
   end)
 
@@ -1008,33 +792,19 @@ T["promote"]["top-level no-op emits warning message"] = function()
 end
 
 T["demote"] = MiniTest.new_set({
-  hooks = {
-    post_case = function()
-      local state = require("voom.state")
-      for body_buf, _ in pairs(state.bodies) do
-        require("voom.tree").close(body_buf)
-        del_buf(body_buf)
-      end
-    end,
-  },
+  hooks = H.clean_hooks(),
 })
 
 T["demote"]["increases heading level by 1"] = function()
   local tree_mod = require("voom.tree")
   local oop = require("voom.oop")
 
-  local lines = simple_doc()
-  local buf = make_scratch_buf(lines, "demote_test.md")
+  local lines = H.simple_doc()
+  local buf = H.make_scratch_buf(lines, "demote_test.md")
   vim.api.nvim_set_current_buf(buf)
   local tree_buf = tree_mod.create(buf, "markdown")
 
-  local tree_win
-  for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-    if vim.api.nvim_win_get_buf(w) == tree_buf then
-      tree_win = w
-      break
-    end
-  end
+  local tree_win = H.find_win_for_buf(tree_buf)
 
   -- Demote "Heading One" (tree line 1, level 1 → level 2).
   if tree_win then
@@ -1060,18 +830,12 @@ T["demote"]["changes only current heading level in normal mode"] = function()
   local tree_mod = require("voom.tree")
   local oop = require("voom.oop")
 
-  local lines = simple_doc()
-  local buf = make_scratch_buf(lines, "demote_sub.md")
+  local lines = H.simple_doc()
+  local buf = H.make_scratch_buf(lines, "demote_sub.md")
   vim.api.nvim_set_current_buf(buf)
   local tree_buf = tree_mod.create(buf, "markdown")
 
-  local tree_win
-  for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-    if vim.api.nvim_win_get_buf(w) == tree_buf then
-      tree_win = w
-      break
-    end
-  end
+  local tree_win = H.find_win_for_buf(tree_buf)
 
   -- Demote "Heading One" (level 1) with children Sub A, Sub B (level 2).
   -- In normal mode only the current heading should change.
@@ -1103,10 +867,10 @@ T["demote"]["keeps focus in tree, preserves selection, and syncs changedtick"] =
   local oop = require("voom.oop")
   local state = require("voom.state")
 
-  local buf = make_scratch_buf(simple_doc(), "demote_focus.md")
+  local buf = H.make_scratch_buf(H.simple_doc(), "demote_focus.md")
   vim.api.nvim_set_current_buf(buf)
   local tree_buf = tree_mod.create(buf, "markdown")
-  local tree_win = find_win_for_buf(tree_buf)
+  local tree_win = H.find_win_for_buf(tree_buf)
 
   vim.api.nvim_set_current_win(tree_win)
   vim.api.nvim_win_set_cursor(tree_win, { 1, 0 })
@@ -1125,7 +889,7 @@ T["demote"]["child no-op emits warning message"] = function()
   local tree_mod = require("voom.tree")
   local oop = require("voom.oop")
 
-  local buf = make_scratch_buf({
+  local buf = H.make_scratch_buf({
     "# Parent",
     "",
     "## Child",
@@ -1134,12 +898,12 @@ T["demote"]["child no-op emits warning message"] = function()
   }, "demote_warn.md")
   vim.api.nvim_set_current_buf(buf)
   local tree_buf = tree_mod.create(buf, "markdown")
-  local tree_win = find_win_for_buf(tree_buf)
+  local tree_win = H.find_win_for_buf(tree_buf)
 
   vim.api.nvim_set_current_win(tree_win)
   vim.api.nvim_win_set_cursor(tree_win, { 2, 0 })
 
-  local echoes = with_captured_echo(function()
+  local echoes = H.with_captured_echo(function()
     oop.demote(tree_buf)
   end)
 
@@ -1156,33 +920,19 @@ end
 -- ==============================================================================
 
 T["move_up"] = MiniTest.new_set({
-  hooks = {
-    post_case = function()
-      local state = require("voom.state")
-      for body_buf, _ in pairs(state.bodies) do
-        require("voom.tree").close(body_buf)
-        del_buf(body_buf)
-      end
-    end,
-  },
+  hooks = H.clean_hooks(),
 })
 
 T["move_up"]["swaps node with previous sibling"] = function()
   local tree_mod = require("voom.tree")
   local oop = require("voom.oop")
 
-  local lines = simple_doc()
-  local buf = make_scratch_buf(lines, "moveup_test.md")
+  local lines = H.simple_doc()
+  local buf = H.make_scratch_buf(lines, "moveup_test.md")
   vim.api.nvim_set_current_buf(buf)
   local tree_buf = tree_mod.create(buf, "markdown")
 
-  local tree_win
-  for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-    if vim.api.nvim_win_get_buf(w) == tree_buf then
-      tree_win = w
-      break
-    end
-  end
+  local tree_win = H.find_win_for_buf(tree_buf)
 
   -- Move "Sub B" (tree line 3) up.  It should swap with "Sub A".
   if tree_win then
@@ -1212,18 +962,12 @@ T["move_up"]["no-op on first sibling"] = function()
   local tree_mod = require("voom.tree")
   local oop = require("voom.oop")
 
-  local lines = simple_doc()
-  local buf = make_scratch_buf(lines, "moveup_first.md")
+  local lines = H.simple_doc()
+  local buf = H.make_scratch_buf(lines, "moveup_first.md")
   vim.api.nvim_set_current_buf(buf)
   local tree_buf = tree_mod.create(buf, "markdown")
 
-  local tree_win
-  for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-    if vim.api.nvim_win_get_buf(w) == tree_buf then
-      tree_win = w
-      break
-    end
-  end
+  local tree_win = H.find_win_for_buf(tree_buf)
 
   -- "Sub A" (tree line 2) is the first child of H1 — no previous sibling.
   if tree_win then
@@ -1246,18 +990,12 @@ T["move_up"]["keeps sibling level when previous sibling has children"] = functio
   local oop = require("voom.oop")
   local state = require("voom.state")
 
-  local lines = load_fixture("readme_outline.md")
-  local buf = make_scratch_buf(lines, "moveup_prev_with_children.md")
+  local lines = H.load_fixture("readme_outline.md")
+  local buf = H.make_scratch_buf(lines, "moveup_prev_with_children.md")
   vim.api.nvim_set_current_buf(buf)
   local tree_buf = tree_mod.create(buf, "markdown")
 
-  local tree_win
-  for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-    if vim.api.nvim_win_get_buf(w) == tree_buf then
-      tree_win = w
-      break
-    end
-  end
+  local tree_win = H.find_win_for_buf(tree_buf)
   MiniTest.expect.equality(tree_win ~= nil, true)
 
   local function find_lnum(text)
@@ -1294,10 +1032,10 @@ T["move_up"]["keeps focus in tree, selects moved node, and syncs changedtick"] =
   local oop = require("voom.oop")
   local state = require("voom.state")
 
-  local buf = make_scratch_buf(simple_doc(), "moveup_focus.md")
+  local buf = H.make_scratch_buf(H.simple_doc(), "moveup_focus.md")
   vim.api.nvim_set_current_buf(buf)
   local tree_buf = tree_mod.create(buf, "markdown")
-  local tree_win = find_win_for_buf(tree_buf)
+  local tree_win = H.find_win_for_buf(tree_buf)
 
   vim.api.nvim_set_current_win(tree_win)
   vim.api.nvim_win_set_cursor(tree_win, { 3, 0 })
@@ -1313,33 +1051,19 @@ T["move_up"]["keeps focus in tree, selects moved node, and syncs changedtick"] =
 end
 
 T["move_down"] = MiniTest.new_set({
-  hooks = {
-    post_case = function()
-      local state = require("voom.state")
-      for body_buf, _ in pairs(state.bodies) do
-        require("voom.tree").close(body_buf)
-        del_buf(body_buf)
-      end
-    end,
-  },
+  hooks = H.clean_hooks(),
 })
 
 T["move_down"]["swaps node with next sibling"] = function()
   local tree_mod = require("voom.tree")
   local oop = require("voom.oop")
 
-  local lines = simple_doc()
-  local buf = make_scratch_buf(lines, "movedn_test.md")
+  local lines = H.simple_doc()
+  local buf = H.make_scratch_buf(lines, "movedn_test.md")
   vim.api.nvim_set_current_buf(buf)
   local tree_buf = tree_mod.create(buf, "markdown")
 
-  local tree_win
-  for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-    if vim.api.nvim_win_get_buf(w) == tree_buf then
-      tree_win = w
-      break
-    end
-  end
+  local tree_win = H.find_win_for_buf(tree_buf)
 
   -- Move "Sub A" (tree line 2) down.
   if tree_win then
@@ -1369,18 +1093,12 @@ T["move_down"]["no-op on last sibling"] = function()
   local tree_mod = require("voom.tree")
   local oop = require("voom.oop")
 
-  local lines = simple_doc()
-  local buf = make_scratch_buf(lines, "movedn_last.md")
+  local lines = H.simple_doc()
+  local buf = H.make_scratch_buf(lines, "movedn_last.md")
   vim.api.nvim_set_current_buf(buf)
   local tree_buf = tree_mod.create(buf, "markdown")
 
-  local tree_win
-  for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-    if vim.api.nvim_win_get_buf(w) == tree_buf then
-      tree_win = w
-      break
-    end
-  end
+  local tree_win = H.find_win_for_buf(tree_buf)
 
   -- "Sub B" (tree line 3) is the last child of H1.
   if tree_win then
@@ -1403,18 +1121,12 @@ T["move_down"]["keeps moved node as sibling when next sibling has children"] = f
   local oop = require("voom.oop")
   local state = require("voom.state")
 
-  local lines = load_fixture("readme_outline.md")
-  local buf = make_scratch_buf(lines, "movedn_next_sib_children.md")
+  local lines = H.load_fixture("readme_outline.md")
+  local buf = H.make_scratch_buf(lines, "movedn_next_sib_children.md")
   vim.api.nvim_set_current_buf(buf)
   local tree_buf = tree_mod.create(buf, "markdown")
 
-  local tree_win
-  for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-    if vim.api.nvim_win_get_buf(w) == tree_buf then
-      tree_win = w
-      break
-    end
-  end
+  local tree_win = H.find_win_for_buf(tree_buf)
   MiniTest.expect.equality(tree_win ~= nil, true)
 
   local function find_lnum(text)
@@ -1457,10 +1169,10 @@ T["move_down"]["keeps focus in tree, selects moved node, and syncs changedtick"]
   local oop = require("voom.oop")
   local state = require("voom.state")
 
-  local buf = make_scratch_buf(simple_doc(), "movedn_focus.md")
+  local buf = H.make_scratch_buf(H.simple_doc(), "movedn_focus.md")
   vim.api.nvim_set_current_buf(buf)
   local tree_buf = tree_mod.create(buf, "markdown")
-  local tree_win = find_win_for_buf(tree_buf)
+  local tree_win = H.find_win_for_buf(tree_buf)
 
   vim.api.nvim_set_current_win(tree_win)
   vim.api.nvim_win_set_cursor(tree_win, { 2, 0 })
@@ -1482,7 +1194,7 @@ end
 T["sort"] = MiniTest.new_set({
   hooks = {
     post_case = function()
-      cleanup_registered_bodies()
+      H.cleanup_registered_bodies()
     end,
   },
 })
@@ -1492,7 +1204,7 @@ T["sort"]["sorts root-level siblings alphabetically and preserves current select
   local oop = require("voom.oop")
   local state = require("voom.state")
 
-  local buf = make_scratch_buf({
+  local buf = H.make_scratch_buf({
     "# B",
     "",
     "body b",
@@ -1505,7 +1217,7 @@ T["sort"]["sorts root-level siblings alphabetically and preserves current select
   }, "sort_root.md")
   vim.api.nvim_set_current_buf(buf)
   local tree_buf = tree_mod.create(buf, "markdown")
-  local tree_win = find_win_for_buf(tree_buf)
+  local tree_win = H.find_win_for_buf(tree_buf)
 
   vim.api.nvim_set_current_win(tree_win)
   vim.api.nvim_win_set_cursor(tree_win, { 2, 0 })
@@ -1536,7 +1248,7 @@ T["sort"]["sorts sibling group under the current parent and keeps ancestors inta
   local oop = require("voom.oop")
   local state = require("voom.state")
 
-  local buf = make_scratch_buf({
+  local buf = H.make_scratch_buf({
     "# Root",
     "",
     "## B",
@@ -1552,7 +1264,7 @@ T["sort"]["sorts sibling group under the current parent and keeps ancestors inta
   }, "sort_nested.md")
   vim.api.nvim_set_current_buf(buf)
   local tree_buf = tree_mod.create(buf, "markdown")
-  local tree_win = find_win_for_buf(tree_buf)
+  local tree_win = H.find_win_for_buf(tree_buf)
 
   vim.api.nvim_set_current_win(tree_win)
   vim.api.nvim_win_set_cursor(tree_win, { 3, 0 })
@@ -1591,10 +1303,10 @@ T["outline_state"]["stored on register"] = function()
   local state = require("voom.state")
   local markdown = require("voom.modes.markdown")
 
-  local lines = simple_doc()
+  local lines = H.simple_doc()
   local outline = markdown.make_outline(lines, "test.md")
 
-  local body_buf = make_scratch_buf(lines, "os_test.md")
+  local body_buf = H.make_scratch_buf(lines, "os_test.md")
   local tree_buf = vim.api.nvim_create_buf(false, true)
 
   state.register(body_buf, tree_buf, "markdown", outline)
@@ -1605,18 +1317,18 @@ T["outline_state"]["stored on register"] = function()
   MiniTest.expect.equality(os.use_close_hash, false)
 
   state.unregister(body_buf)
-  del_buf(body_buf)
-  del_buf(tree_buf)
+  H.del_buf(body_buf)
+  H.del_buf(tree_buf)
 end
 
 T["outline_state"]["updated on set_outline"] = function()
   local state = require("voom.state")
   local markdown = require("voom.modes.markdown")
 
-  local lines = simple_doc()
+  local lines = H.simple_doc()
   local outline = markdown.make_outline(lines, "test.md")
 
-  local body_buf = make_scratch_buf(lines, "os_update.md")
+  local body_buf = H.make_scratch_buf(lines, "os_update.md")
   local tree_buf = vim.api.nvim_create_buf(false, true)
 
   state.register(body_buf, tree_buf, "markdown", outline)
@@ -1635,8 +1347,8 @@ T["outline_state"]["updated on set_outline"] = function()
   MiniTest.expect.equality(os.use_close_hash, true)
 
   state.unregister(body_buf)
-  del_buf(body_buf)
-  del_buf(tree_buf)
+  H.del_buf(body_buf)
+  H.del_buf(tree_buf)
 end
 
 return T

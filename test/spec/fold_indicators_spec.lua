@@ -1,32 +1,6 @@
+local H = dofile("test/helpers.lua")
+
 local T = MiniTest.new_set()
-
--- ==============================================================================
--- Helpers
--- ==============================================================================
-
--- Create a scratch buffer optionally loaded with lines.
-local function make_scratch_buf(lines)
-  local buf = vim.api.nvim_create_buf(false, true)
-  if lines then
-    vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
-  end
-  return buf
-end
-
-local function del_buf(buf)
-  if buf and vim.api.nvim_buf_is_valid(buf) then
-    vim.api.nvim_buf_delete(buf, { force = true })
-  end
-end
-
--- Open a floating window displaying `buf` so find_win_for_buf() can locate it.
--- Returns the window handle.
-local function open_float_win(buf)
-  return vim.api.nvim_open_win(buf, false, {
-    relative = "editor",
-    row = 0, col = 0, width = 40, height = 10,
-  })
-end
 
 -- ==============================================================================
 -- apply_fold_indicators
@@ -58,7 +32,7 @@ T["apply_fold_indicators"] = MiniTest.new_set({
           " · Heading Two",
         },
       }
-      local body_buf = make_scratch_buf()
+      local body_buf = H.make_scratch_buf()
       -- Tree buf holds the actual display lines (4 heading lines; no root node).
       -- Format: " " + string.rep("  ", lev-1) + "· " + text
       local tree_lines = {
@@ -67,14 +41,14 @@ T["apply_fold_indicators"] = MiniTest.new_set({
         "   · Child B",
         " · Heading Two",
       }
-      local tree_buf = make_scratch_buf(tree_lines)
+      local tree_buf = H.make_scratch_buf(tree_lines)
 
       state.register(body_buf, tree_buf, "markdown", outline)
       T["apply_fold_indicators"]._body = body_buf
       T["apply_fold_indicators"]._tree = tree_buf
 
       -- A window must exist for find_win_for_buf; use a floating win.
-      local tree_win = open_float_win(tree_buf)
+      local tree_win = H.open_float_win(tree_buf)
       T["apply_fold_indicators"]._tree_win = tree_win
     end,
     post_case = function()
@@ -83,8 +57,8 @@ T["apply_fold_indicators"] = MiniTest.new_set({
         vim.api.nvim_win_close(T["apply_fold_indicators"]._tree_win, true)
       end
       state.unregister(T["apply_fold_indicators"]._body)
-      del_buf(T["apply_fold_indicators"]._body)
-      del_buf(T["apply_fold_indicators"]._tree)
+      H.del_buf(T["apply_fold_indicators"]._body)
+      H.del_buf(T["apply_fold_indicators"]._tree)
     end,
   },
 })
@@ -223,7 +197,7 @@ T["update applies fold indicators"] = MiniTest.new_set({
         "more content",
         "# Gamma",
       }
-      local body_buf = make_scratch_buf(lines)
+      local body_buf = H.make_scratch_buf(lines)
       vim.api.nvim_buf_set_name(body_buf, "update_test.md")
       vim.api.nvim_set_current_buf(body_buf)
 
@@ -235,7 +209,7 @@ T["update applies fold indicators"] = MiniTest.new_set({
     post_case = function()
       local tree = require("voom.tree")
       tree.close(T["update applies fold indicators"]._body)
-      del_buf(T["update applies fold indicators"]._body)
+      H.del_buf(T["update applies fold indicators"]._body)
     end,
   },
 })
@@ -288,18 +262,18 @@ T["render_indent_guides"] = MiniTest.new_set({
           " · Heading Two",
         },
       }
-      local body_buf = make_scratch_buf()
+      local body_buf = H.make_scratch_buf()
       local tree_lines = {
         " · Heading One",
         "   · Child A",
         "   · Child B",
         " · Heading Two",
       }
-      local tree_buf = make_scratch_buf(tree_lines)
+      local tree_buf = H.make_scratch_buf(tree_lines)
       state.register(body_buf, tree_buf, "markdown", outline)
       T["render_indent_guides"]._body    = body_buf
       T["render_indent_guides"]._tree    = tree_buf
-      local tree_win = open_float_win(tree_buf)
+      local tree_win = H.open_float_win(tree_buf)
       T["render_indent_guides"]._tree_win = tree_win
     end,
     post_case = function()
@@ -308,8 +282,8 @@ T["render_indent_guides"] = MiniTest.new_set({
         vim.api.nvim_win_close(T["render_indent_guides"]._tree_win, true)
       end
       state.unregister(T["render_indent_guides"]._body)
-      del_buf(T["render_indent_guides"]._body)
-      del_buf(T["render_indent_guides"]._tree)
+      H.del_buf(T["render_indent_guides"]._body)
+      H.del_buf(T["render_indent_guides"]._tree)
     end,
   },
 })
@@ -404,7 +378,7 @@ T["render_count_badges - unit"] = MiniTest.new_set({
           " · H1b",
         },
       }
-      local body_buf = make_scratch_buf()
+      local body_buf = H.make_scratch_buf()
       local tree_lines = {
         " · H1",
         "   · H2a",
@@ -412,11 +386,11 @@ T["render_count_badges - unit"] = MiniTest.new_set({
         "   · H2b",
         " · H1b",
       }
-      local tree_buf = make_scratch_buf(tree_lines)
+      local tree_buf = H.make_scratch_buf(tree_lines)
       state.register(body_buf, tree_buf, "markdown", outline)
       T["render_count_badges - unit"]._body     = body_buf
       T["render_count_badges - unit"]._tree     = tree_buf
-      local tree_win = open_float_win(tree_buf)
+      local tree_win = H.open_float_win(tree_buf)
       T["render_count_badges - unit"]._tree_win = tree_win
     end,
     post_case = function()
@@ -425,8 +399,8 @@ T["render_count_badges - unit"] = MiniTest.new_set({
         vim.api.nvim_win_close(T["render_count_badges - unit"]._tree_win, true)
       end
       state.unregister(T["render_count_badges - unit"]._body)
-      del_buf(T["render_count_badges - unit"]._body)
-      del_buf(T["render_count_badges - unit"]._tree)
+      H.del_buf(T["render_count_badges - unit"]._body)
+      H.del_buf(T["render_count_badges - unit"]._tree)
     end,
   },
 })
@@ -505,7 +479,7 @@ T["render_count_badges - integration"] = MiniTest.new_set({
         "details",
         "# Gamma",
       }
-      local body_buf = make_scratch_buf(lines)
+      local body_buf = H.make_scratch_buf(lines)
       vim.api.nvim_buf_set_name(body_buf, "badge_test.md")
       vim.api.nvim_set_current_buf(body_buf)
 
@@ -517,7 +491,7 @@ T["render_count_badges - integration"] = MiniTest.new_set({
     post_case = function()
       local tree = require("voom.tree")
       tree.close(T["render_count_badges - integration"]._body)
-      del_buf(T["render_count_badges - integration"]._body)
+      H.del_buf(T["render_count_badges - integration"]._body)
     end,
   },
 })

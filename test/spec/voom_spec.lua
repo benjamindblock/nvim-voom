@@ -1,40 +1,6 @@
+local H = dofile("test/helpers.lua")
+
 local T = MiniTest.new_set()
-
--- ==============================================================================
--- Helpers
--- ==============================================================================
-
-local function make_scratch_buf(lines, name)
-  local buf = vim.api.nvim_create_buf(false, true)
-  if name then
-    vim.api.nvim_buf_set_name(buf, name)
-  end
-  if lines then
-    vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
-  end
-  return buf
-end
-
-local function del_buf(buf)
-  if buf and vim.api.nvim_buf_is_valid(buf) then
-    vim.api.nvim_buf_delete(buf, { force = true })
-  end
-end
-
-local function with_captured_notify(fn)
-  local calls = {}
-  local orig = vim.notify
-  vim.notify = function(msg, level, opts)
-    table.insert(calls, { msg = msg, level = level, opts = opts })
-  end
-
-  local ok, err = pcall(fn, calls)
-  vim.notify = orig
-  if not ok then
-    error(err)
-  end
-  return calls
-end
 
 -- ==============================================================================
 -- Module loading
@@ -101,19 +67,7 @@ end
 
 T["init"] = MiniTest.new_set({
   hooks = {
-    pre_case = function()
-      T["init"]._body_buf = nil
-    end,
-    post_case = function()
-      local state = require("voom.state")
-      local body = T["init"]._body_buf
-      if body and state.is_body(body) then
-        require("voom.tree").close(body)
-      end
-      if body and vim.api.nvim_buf_is_valid(body) then
-        vim.api.nvim_buf_delete(body, { force = true })
-      end
-    end,
+    post_case = H.cleanup_registered_bodies,
   },
 })
 
@@ -192,16 +146,8 @@ end
 
 T["grep"] = MiniTest.new_set({
   hooks = {
-    pre_case = function()
-      T["grep"]._body_buf = nil
-    end,
     post_case = function()
-      local state = require("voom.state")
-      local body = T["grep"]._body_buf
-      if body and state.is_body(body) then
-        require("voom.tree").close(body)
-      end
-      del_buf(body)
+      H.cleanup_registered_bodies()
       vim.fn.setqflist({}, "r")
     end,
   },
@@ -211,7 +157,7 @@ T["grep"]["populates quickfix with matching headings and body lines"] = function
   local voom = require("voom")
   local tree = require("voom.tree")
 
-  local body = make_scratch_buf({
+  local body = H.make_scratch_buf({
     "# Alpha",
     "",
     "## Beta",
@@ -224,7 +170,7 @@ T["grep"]["populates quickfix with matching headings and body lines"] = function
   local tree_buf = tree.create(body, "markdown")
   vim.api.nvim_set_current_buf(tree_buf)
 
-  local notifications = with_captured_notify(function()
+  local notifications = H.with_captured_notify(function()
     voom.grep("a")
   end)
 
@@ -243,7 +189,7 @@ T["grep"]["warns on no matches and leaves quickfix empty"] = function()
   local voom = require("voom")
   local tree = require("voom.tree")
 
-  local body = make_scratch_buf({
+  local body = H.make_scratch_buf({
     "# Alpha",
     "",
     "## Beta",
@@ -253,7 +199,7 @@ T["grep"]["warns on no matches and leaves quickfix empty"] = function()
   vim.api.nvim_set_current_buf(body)
   tree.create(body, "markdown")
 
-  local notifications = with_captured_notify(function()
+  local notifications = H.with_captured_notify(function()
     voom.grep("Z+")
   end)
 
@@ -269,19 +215,7 @@ end
 -- ==============================================================================
 
 T["voominfo"] = MiniTest.new_set({
-  hooks = {
-    pre_case = function()
-      T["voominfo"]._body_buf = nil
-    end,
-    post_case = function()
-      local state = require("voom.state")
-      local body = T["voominfo"]._body_buf
-      if body and state.is_body(body) then
-        require("voom.tree").close(body)
-      end
-      del_buf(body)
-    end,
-  },
+  hooks = H.clean_hooks(),
 })
 
 T["voominfo"]["reports mode node count selected line and heading text"] = function()
@@ -289,7 +223,7 @@ T["voominfo"]["reports mode node count selected line and heading text"] = functi
   local tree = require("voom.tree")
   local state = require("voom.state")
 
-  local body = make_scratch_buf({
+  local body = H.make_scratch_buf({
     "# Alpha",
     "",
     "## Beta",
@@ -300,7 +234,7 @@ T["voominfo"]["reports mode node count selected line and heading text"] = functi
   tree.create(body, "markdown")
   state.set_snLn(body, 2)
 
-  local notifications = with_captured_notify(function()
+  local notifications = H.with_captured_notify(function()
     voom.voominfo()
   end)
 
@@ -314,10 +248,10 @@ end
 
 T["voominfo"]["errors when current buffer has no active VOoM tree"] = function()
   local voom = require("voom")
-  local buf = make_scratch_buf({ "plain text" }, "voominfo_error.txt")
+  local buf = H.make_scratch_buf({ "plain text" }, "voominfo_error.txt")
 
   vim.api.nvim_set_current_buf(buf)
-  local notifications = with_captured_notify(function()
+  local notifications = H.with_captured_notify(function()
     voom.voominfo()
   end)
 
@@ -325,7 +259,7 @@ T["voominfo"]["errors when current buffer has no active VOoM tree"] = function()
   MiniTest.expect.equality(notifications[1].level, vim.log.levels.ERROR)
   MiniTest.expect.equality(notifications[1].msg, "VOoM: current buffer has no active VOoM tree")
 
-  del_buf(buf)
+  H.del_buf(buf)
 end
 
 return T
