@@ -265,6 +265,52 @@ local function body_line_end(bnodes, ln_end, total_body)
   return total_body
 end
 
+-- Compute the full tree-line and body-line range for a node's subtree.
+--
+-- Returns four values:
+--   ln1  — first bnodes/levels index (= tlnum)
+--   ln2  — last bnodes/levels index in the subtree
+--   bln1 — first body line of the subtree
+--   bln2 — last body line of the subtree
+--
+-- Used by cut, copy, move_up, move_down, and sort to avoid repeating the
+-- same count_subnodes + body_line_end sequence.
+local function node_subtree_range(bnodes, levels, tlnum, total_body)
+  local ln1 = tlnum
+  local sub_count = M.count_subnodes(levels, tlnum)
+  local ln2 = ln1 + sub_count
+  local bln1 = bnodes[ln1]
+  local bln2 = body_line_end(bnodes, ln2, total_body)
+  return ln1, ln2, bln1, bln2
+end
+
+-- Apply mode-specific format normalization, then write the body buffer.
+--
+-- Combines Phase 2b (normalization via do_body_after_oop) and Phase 3
+-- (body write) into a single call.  The `norm` table carries named
+-- do_body_after_oop arguments, replacing the positional-`0`-placeholder
+-- pattern that was previously repeated in every mutating command.
+--
+-- norm fields (all optional, default to 0):
+--   op         — operation name ("cut", "paste", "up", "down", "left", "right")
+--   lev_delta  — level adjustment applied to the moved/promoted/demoted nodes
+--   blnum1, tlnum1 — body line / tree line of the first affected node
+--   blnum2, tlnum2 — body line / tree line of the last affected node
+--   blnum_cut, tlnum_cut — body line / tree line at the cut junction
+local function normalize_and_write(body_buf, mode, outline_state, all_lines, new_bnodes, new_levels, norm)
+  if mode and mode.do_body_after_oop and outline_state then
+    mode.do_body_after_oop(
+      all_lines, new_bnodes, new_levels, outline_state,
+      norm.op,
+      norm.lev_delta or 0,
+      norm.blnum1 or 0, norm.tlnum1 or 0,
+      norm.blnum2 or 0, norm.tlnum2 or 0,
+      norm.blnum_cut or 0, norm.tlnum_cut or 0
+    )
+  end
+  write_body(body_buf, all_lines)
+end
+
 -- Post-write coordinator: handles phases 4–6 of the OOP flow.
 --
 -- Phase 4 — re-parse the body buffer, update state, refresh the tree
@@ -520,17 +566,14 @@ function M.copy_node(tree_buf)
     return
   end
 
-  local bln1, bln2 = M.get_node_range(ctx.bnodes, ctx.levels, ctx.tlnum, ctx.total_body)
+  local ln1, ln2, bln1, bln2 = node_subtree_range(ctx.bnodes, ctx.levels, ctx.tlnum, ctx.total_body)
 
   -- Read the body lines for this subtree.
   local body_lines = vim.api.nvim_buf_get_lines(ctx.body_buf, bln1 - 1, bln2, false)
 
   -- Collect the levels for nodes in this subtree.
-  -- Tree line k = levels[k] (direct mapping; no root offset).
   local copied_levels = {}
-  local idx = ctx.tlnum
-  local sub_count = M.count_subnodes(ctx.levels, ctx.tlnum)
-  for i = idx, idx + sub_count do
+  for i = ln1, ln2 do
     table.insert(copied_levels, ctx.levels[i])
   end
 
@@ -570,17 +613,9 @@ function M.cut_node(tree_buf)
   local bnodes = ctx.bnodes
   local levels = ctx.levels
   local tlnum = ctx.tlnum
-  local total_body = ctx.total_body
 
-  -- Compute the tree line range for the subtree being cut.
-  -- Tree line k = levels[k] / bnodes[k] (direct mapping; no root offset).
-  local ln1 = tlnum -- levels/bnodes index of first node
-  local sub_count = M.count_subnodes(levels, tlnum)
-  local ln2 = ln1 + sub_count -- levels/bnodes index of last node in subtree
-
-  -- Body range.
-  local bln1 = bnodes[ln1]
-  local bln2 = body_line_end(bnodes, ln2, total_body)
+  -- Subtree range for the node being cut.
+  local ln1, ln2, bln1, bln2 = node_subtree_range(bnodes, levels, tlnum, ctx.total_body)
 
   -- Copy to clipboard before removing.
   local cut_body_lines = vim.api.nvim_buf_get_lines(ctx.body_buf, bln1 - 1, bln2, false)
@@ -590,15 +625,13 @@ function M.cut_node(tree_buf)
   end
   clipboard = { body_lines = cut_body_lines, levels = cut_levels }
 
-  -- Read all body lines, delete the range, apply post-processing.
+  -- Read all body lines and delete the subtree range.
   local all_lines = vim.api.nvim_buf_get_lines(ctx.body_buf, 0, -1, false)
-
-  -- Delete the range from the lines table.
   for _ = bln1, bln2 do
     table.remove(all_lines, bln1)
   end
 
-  -- Update bnodes: decrement entries after the deleted range, then remove.
+  -- Build post-cut bnodes/levels for mode normalization.
   local delta = bln2 - bln1 + 1
   local new_bnodes = {}
   local new_levels = {}
@@ -613,35 +646,18 @@ function M.cut_node(tree_buf)
     -- Skip indices ln1..ln2 (the cut range).
   end
 
-  -- Call do_body_after_oop("cut") for blank-line cleanup.
-  -- blnum_cut = bln1 - 1 (body line at the junction, in the post-delete table).
-  -- tlnum_cut = ln1 - 1 (bnodes index of node just before the cut).
-  -- We need the index into the new (post-cut) bnodes array.  Since we removed
-  -- entries ln1..ln2, the node at old index ln1-1 is now at new index ln1-1.
-  if mode and mode.do_body_after_oop and outline_state then
-    local blnum_cut = bln1 - 1
-    local tlnum_cut = ln1 - 1
-    -- Only call if the cut boundary is valid.
-    if blnum_cut > 0 and tlnum_cut >= 1 then
-      mode.do_body_after_oop(
-        all_lines,
-        new_bnodes,
-        new_levels,
-        outline_state,
-        "cut",
-        0,
-        0,
-        0, -- blnum1, tlnum1 (not used for cut)
-        0,
-        0, -- blnum2, tlnum2 (not used for cut)
-        blnum_cut,
-        tlnum_cut
-      )
-    end
+  -- Normalize blank lines at the cut junction and write.
+  -- blnum_cut/tlnum_cut point to the node just before the cut boundary
+  -- in the post-delete arrays (ln1-1 is unchanged since we removed ln1..ln2).
+  local blnum_cut = bln1 - 1
+  local tlnum_cut = ln1 - 1
+  if blnum_cut > 0 and tlnum_cut >= 1 then
+    normalize_and_write(ctx.body_buf, mode, outline_state, all_lines, new_bnodes, new_levels, {
+      op = "cut", blnum_cut = blnum_cut, tlnum_cut = tlnum_cut,
+    })
+  else
+    write_body(ctx.body_buf, all_lines)
   end
-
-  -- Write back to buffer.
-  write_body(ctx.body_buf, all_lines)
 
   local node_count = #cut_levels
   refresh_after_edit(ctx.body_buf, ctx.tree_win, {
@@ -791,26 +807,12 @@ function M.paste_node(tree_buf)
   local blnum1 = bln_insert + 1
   local blnum2 = bln_insert + #p_blines
 
-  -- Call do_body_after_oop("paste") for format normalization.
-  if mode.do_body_after_oop then
-    mode.do_body_after_oop(
-      all_lines,
-      new_bnodes,
-      new_levels,
-      outline_state,
-      "paste",
-      lev_delta,
-      blnum1,
-      tlnum1,
-      blnum2,
-      tlnum2,
-      0,
-      0 -- blnum_cut, tlnum_cut not used for paste
-    )
-  end
-
-  -- Write back.
-  write_body(ctx.body_buf, all_lines)
+  -- Normalize pasted heading format and write.
+  normalize_and_write(ctx.body_buf, mode, outline_state, all_lines, new_bnodes, new_levels, {
+    op = "paste", lev_delta = lev_delta,
+    blnum1 = blnum1, tlnum1 = tlnum1,
+    blnum2 = blnum2, tlnum2 = tlnum2,
+  })
 
   refresh_after_edit(ctx.body_buf, ctx.tree_win, {
     target_tlnum = tlnum1,
@@ -838,7 +840,6 @@ function M.move_up(tree_buf)
 
   local bnodes = ctx.bnodes
   local levels = ctx.levels
-  local total_body = ctx.total_body
 
   -- Find previous sibling.
   local prev_sib = tree.find_prev_sibling_lnum(levels, tlnum)
@@ -846,10 +847,8 @@ function M.move_up(tree_buf)
     return
   end
 
-  -- Tree line k = bnodes[k] / levels[k] (direct mapping; no root offset).
-  local ln1 = tlnum -- bnodes index of first node being moved
-  local sub_count = M.count_subnodes(levels, tlnum)
-  local ln2 = ln1 + sub_count -- bnodes index of last node in subtree
+  -- Subtree range for the node being moved.
+  local ln1, ln2, bln1, bln2 = node_subtree_range(bnodes, levels, tlnum, ctx.total_body)
 
   -- lnUp1: previous sibling root (bnodes index, direct = tree line).
   local lnUp1 = prev_sib
@@ -857,13 +856,8 @@ function M.move_up(tree_buf)
   -- Compute level delta.
   -- Move-up swaps sibling branches, so the moved root should take the previous
   -- sibling's level (and remain a sibling), regardless of descendants above.
-  local lev_old = levels[ln1]
-  local lev_new = levels[lnUp1]
-  local lev_delta = lev_new - lev_old
+  local lev_delta = levels[lnUp1] - levels[ln1]
 
-  -- Body ranges.
-  local bln1 = bnodes[ln1]
-  local bln2 = body_line_end(bnodes, ln2, total_body)
   local bln_up1 = bnodes[lnUp1]
 
   -- Read all body lines.
@@ -917,32 +911,14 @@ function M.move_up(tree_buf)
     table.insert(new_levels, lnUp1, n_levels[i])
   end
 
-  -- Compute arguments for do_body_after_oop.
-  local new_bln_show = bln_up1
-  local new_ln1 = lnUp1
-  local new_ln2 = lnUp1 + #n_levels - 1
-  local blnum_cut = bln1 - 1 + #moved_lines -- body line at old position (post-insert)
-  local tlnum_cut = ln1 - 1 + #n_levels -- bnodes index at old position
-
-  if mode and mode.do_body_after_oop and outline_state then
-    mode.do_body_after_oop(
-      all_lines,
-      new_bnodes,
-      new_levels,
-      outline_state,
-      "up",
-      lev_delta,
-      new_bln_show,
-      new_ln1,
-      new_bln_show + #moved_lines - 1,
-      new_ln2,
-      blnum_cut,
-      tlnum_cut
-    )
-  end
-
-  -- Write back.
-  write_body(ctx.body_buf, all_lines)
+  -- Normalize blank lines at old and new positions, then write.
+  normalize_and_write(ctx.body_buf, mode, outline_state, all_lines, new_bnodes, new_levels, {
+    op = "up", lev_delta = lev_delta,
+    blnum1 = bln_up1, tlnum1 = lnUp1,
+    blnum2 = bln_up1 + #moved_lines - 1, tlnum2 = lnUp1 + #n_levels - 1,
+    blnum_cut = bln1 - 1 + #moved_lines, -- body line at old position (post-insert)
+    tlnum_cut = ln1 - 1 + #n_levels,     -- bnodes index at old position
+  })
 
   refresh_after_edit(ctx.body_buf, ctx.tree_win, {
     target_tlnum = lnUp1,
@@ -969,7 +945,6 @@ function M.move_down(tree_buf)
 
   local bnodes = ctx.bnodes
   local levels = ctx.levels
-  local total_body = ctx.total_body
 
   -- Find next sibling.
   local next_sib = tree.find_next_sibling_lnum(levels, tlnum)
@@ -977,19 +952,14 @@ function M.move_down(tree_buf)
     return
   end
 
-  -- Tree line k = bnodes[k] / levels[k] (direct mapping; no root offset).
-  local ln1 = tlnum -- bnodes index of first node being moved
-  local sub_count = M.count_subnodes(levels, tlnum)
-  local ln2 = ln1 + sub_count
+  -- Subtree range for the node being moved.
+  local ln1, ln2, bln1, bln2 = node_subtree_range(bnodes, levels, tlnum, ctx.total_body)
 
   -- lnDn1: tree line (= bnodes index) of the sibling after which we move.
   local lnDn1 = next_sib
 
   -- Compute where to insert (after lnDn1's subtree).
   local lnIns = lnDn1
-  local lev_old = levels[ln1]
-  local lev_new = levels[lnDn1]
-
   if lnDn1 < #levels then
     -- lnDn1 has children — always insert after the full sibling branch.
     -- move_down is a sibling swap, so never insert as child based on fold state.
@@ -998,12 +968,8 @@ function M.move_down(tree_buf)
     end
   end
 
-  local lev_delta = lev_new - lev_old
-
-  -- Body ranges.
-  local bln1 = bnodes[ln1]
-  local bln2 = body_line_end(bnodes, ln2, total_body)
-  local bln_ins = body_line_end(bnodes, lnIns, total_body)
+  local lev_delta = levels[lnDn1] - levels[ln1]
+  local bln_ins = body_line_end(bnodes, lnIns, ctx.total_body)
 
   -- Read all body lines.
   local all_lines = vim.api.nvim_buf_get_lines(ctx.body_buf, 0, -1, false)
@@ -1058,30 +1024,14 @@ function M.move_down(tree_buf)
     table.remove(new_levels, ln1)
   end
 
-  -- do_body_after_oop arguments.
+  -- Normalize blank lines at old and new positions, then write.
   local bln_show = new_bnodes[new_snLn_idx]
-  local blnum_cut = bln1 - 1
-  local tlnum_cut = ln1 - 1
-
-  if mode and mode.do_body_after_oop and outline_state then
-    mode.do_body_after_oop(
-      all_lines,
-      new_bnodes,
-      new_levels,
-      outline_state,
-      "down",
-      lev_delta,
-      bln_show,
-      new_snLn_idx,
-      bln_show + #moved_lines - 1,
-      new_snLn_idx + #n_levels - 1,
-      blnum_cut,
-      tlnum_cut
-    )
-  end
-
-  -- Write back.
-  write_body(ctx.body_buf, all_lines)
+  normalize_and_write(ctx.body_buf, mode, outline_state, all_lines, new_bnodes, new_levels, {
+    op = "down", lev_delta = lev_delta,
+    blnum1 = bln_show, tlnum1 = new_snLn_idx,
+    blnum2 = bln_show + #moved_lines - 1, tlnum2 = new_snLn_idx + #n_levels - 1,
+    blnum_cut = bln1 - 1, tlnum_cut = ln1 - 1,
+  })
 
   refresh_after_edit(ctx.body_buf, ctx.tree_win, {
     target_tlnum = new_snLn_idx,
@@ -1136,30 +1086,14 @@ function M.promote(tree_buf)
     new_levels[i] = new_levels[i] - 1
   end
 
-  -- Body range.
+  -- Normalize heading format for the new level, then write.
   local blnum1 = bnodes[ln1]
   local blnum2 = body_line_end(bnodes, ln2, total_body)
-
-  -- Call do_body_after_oop for format changes (ATX ↔ setext etc.)
-  if mode and mode.do_body_after_oop and outline_state then
-    mode.do_body_after_oop(
-      all_lines,
-      new_bnodes,
-      new_levels,
-      outline_state,
-      "left",
-      -1,
-      blnum1,
-      ln1,
-      blnum2,
-      ln2,
-      0,
-      0
-    )
-  end
-
-  -- Write back.
-  write_body(ctx.body_buf, all_lines)
+  normalize_and_write(ctx.body_buf, mode, outline_state, all_lines, new_bnodes, new_levels, {
+    op = "left", lev_delta = -1,
+    blnum1 = blnum1, tlnum1 = ln1,
+    blnum2 = blnum2, tlnum2 = ln2,
+  })
 
   refresh_after_edit(ctx.body_buf, ctx.tree_win, {
     target_tlnum = tlnum,
@@ -1225,30 +1159,14 @@ function M.demote(tree_buf)
     new_levels[i] = new_levels[i] + 1
   end
 
-  -- Body range.
+  -- Normalize heading format for the new level, then write.
   local blnum1 = bnodes[ln1]
   local blnum2 = body_line_end(bnodes, ln2, total_body)
-
-  -- Call do_body_after_oop for format changes.
-  if mode and mode.do_body_after_oop and outline_state then
-    mode.do_body_after_oop(
-      all_lines,
-      new_bnodes,
-      new_levels,
-      outline_state,
-      "right",
-      1,
-      blnum1,
-      ln1,
-      blnum2,
-      ln2,
-      0,
-      0
-    )
-  end
-
-  -- Write back.
-  write_body(ctx.body_buf, all_lines)
+  normalize_and_write(ctx.body_buf, mode, outline_state, all_lines, new_bnodes, new_levels, {
+    op = "right", lev_delta = 1,
+    blnum1 = blnum1, tlnum1 = ln1,
+    blnum2 = blnum2, tlnum2 = ln2,
+  })
 
   refresh_after_edit(ctx.body_buf, ctx.tree_win, {
     target_tlnum = tlnum,
@@ -1317,12 +1235,8 @@ function M.sort(body_buf, args_string)
   local chunks = {} -- { { tlnum_start, tlnum_end, bln1, bln2, sort_key, body_lines } }
   local sib = first_sib
   while sib do
-    local sib_idx = sib -- direct mapping: tree line = bnodes/levels index
-    local sub_count = M.count_subnodes(levels, sib)
-    local sib_end = sib_idx + sub_count -- last bnodes index in this branch
-
-    local bln1 = bnodes[sib_idx]
-    local bln2 = body_line_end(bnodes, sib_end, total_body)
+    local sib_idx, sib_end, bln1, bln2 = node_subtree_range(bnodes, levels, sib, total_body)
+    local sub_count = sib_end - sib_idx
 
     local body_lines = vim.api.nvim_buf_get_lines(body_buf, bln1 - 1, bln2, false)
 
@@ -1397,8 +1311,7 @@ function M.sort(body_buf, args_string)
   -- Rebuild the body by replacing the sibling range with sorted chunks.
   -- We need the original first and last body lines of the entire sibling group.
   local orig_bln1 = bnodes[first_sib]
-  local last_sib_end = last_sib + M.count_subnodes(levels, last_sib)
-  local orig_bln2 = body_line_end(bnodes, last_sib_end, total_body)
+  local _, _, _, orig_bln2 = node_subtree_range(bnodes, levels, last_sib, total_body)
 
   -- Collect all sorted body lines.
   local sorted_lines = {}

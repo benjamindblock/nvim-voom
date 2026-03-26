@@ -148,16 +148,20 @@ The public plugin API, commands, keymaps, and user-visible behavior must remain 
 - Internal helper ordering in `oop.lua` adjusted: `select_node` and `tree_lnum_after_refresh` are now defined before the coordinator that calls them.
 - All 192 contract tests pass with zero failures.
 
-9. **Refactor tree-context structural edits incrementally**
-- Refactor `insert`, `cut`, `copy`, `paste`, `move_up`, `move_down`, `promote`, and `demote` one command at a time.
-- For each command:
-  - Use the narrow state API (already migrated in step 3) for all state reads.
-  - Move body-write mechanics and post-refresh mechanics onto the shared helpers.
-  - Keep command-specific mutation math and mode-specific normalization inputs local.
-- After each command:
-  - Re-run the relevant spec subset.
-  - Confirm no drift in clipboard behavior, undo/redo semantics, fold refresh timing, selection behavior, and focus behavior.
-- Do not batch all tree-context commands into a single large edit; keep each step reviewable.
+9. **Refactor tree-context structural edits incrementally** — COMPLETE
+- Two new module-private helpers added to `oop.lua`:
+  - `node_subtree_range(bnodes, levels, tlnum, total_body)` — computes ln1/ln2/bln1/bln2 for a node's full subtree, replacing the repeated `count_subnodes` + `body_line_end` sequence in cut, copy, move_up, move_down, and sort.
+  - `normalize_and_write(body_buf, mode, outline_state, all_lines, new_bnodes, new_levels, norm)` — combines the `do_body_after_oop` nil-guard and `write_body` call with a named-fields `norm` table, replacing the positional-`0`-placeholder pattern in cut, paste, move_up, move_down, promote, and demote.
+- All eight commands migrated:
+  - `insert_node`: already clean — no changes needed (uses `nvim_buf_set_lines` for append, `new_headline` handles format).
+  - `cut_node`: uses `node_subtree_range`, `normalize_and_write`.
+  - `copy_node`: uses `node_subtree_range`.
+  - `paste_node`: uses `normalize_and_write`.
+  - `move_up`, `move_down`: use `node_subtree_range`, `normalize_and_write`; dead `total_body` locals removed.
+  - `promote`, `demote`: use `normalize_and_write`.
+  - `sort`: uses `node_subtree_range` in both the chunk-building loop and the sibling group range computation.
+- Command-specific mutation logic, selection policy computation, and body cursor targeting remain local to each command.
+- All 192 contract tests pass with zero failures.
 
 10. **Refactor `sort` separately**
 - Keep `sort` on its own path because its entry semantics differ from tree-initiated edits.
