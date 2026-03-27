@@ -177,6 +177,28 @@ function H.simple_doc()
   }
 end
 
+--- Build the canonical simple AsciiDoc document used across AsciiDoc tests.
+--- 4 headings: L1 "Heading One", L2 "Sub A", L2 "Sub B", L1 "Heading Two".
+function H.simple_adoc()
+  return {
+    "= Heading One",
+    "",
+    "Content under one.",
+    "",
+    "== Sub A",
+    "",
+    "Content under Sub A.",
+    "",
+    "== Sub B",
+    "",
+    "Content under Sub B.",
+    "",
+    "= Heading Two",
+    "",
+    "Content under two.",
+  }
+end
+
 -- ==============================================================================
 -- Tree/body setup (high-level)
 -- ==============================================================================
@@ -184,14 +206,16 @@ end
 --- Create a body buffer from `lines` (or `simple_doc()` if nil), open a tree
 --- for it, focus the tree window, and position the cursor on `tree_lnum`.
 ---
+--- `mode` defaults to `"markdown"` when omitted.
+---
 --- Returns `body_buf, tree_buf, tree_win`.
-function H.setup_tree(lines, buf_name, tree_lnum)
+function H.setup_tree(lines, buf_name, tree_lnum, mode)
   local tree_mod = require("voom.tree")
 
   lines = lines or H.simple_doc()
   local buf = H.make_scratch_buf(lines, buf_name)
   vim.api.nvim_set_current_buf(buf)
-  local tree_buf = tree_mod.create(buf, "markdown")
+  local tree_buf = tree_mod.create(buf, mode or "markdown")
   local tree_win = H.find_win_for_buf(tree_buf)
 
   if tree_win and tree_lnum then

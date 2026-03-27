@@ -69,6 +69,25 @@ T["complete"]["matching prefix returns matching modes"] = function()
   MiniTest.expect.equality(result[1], "markdown")
 end
 
+T["complete"]["asciidoc appears in completion list"] = function()
+  local voom = require("voom")
+  local result = voom.complete("")
+  local has_asciidoc = false
+  for _, v in ipairs(result) do
+    if v == "asciidoc" then
+      has_asciidoc = true
+    end
+  end
+  MiniTest.expect.equality(has_asciidoc, true)
+end
+
+T["complete"]["asc prefix returns asciidoc"] = function()
+  local voom = require("voom")
+  local result = voom.complete("asc")
+  MiniTest.expect.equality(#result, 1)
+  MiniTest.expect.equality(result[1], "asciidoc")
+end
+
 T["complete"]["non-matching prefix returns empty list"] = function()
   local voom = require("voom")
   local result = voom.complete("xyz")
@@ -102,6 +121,55 @@ T["init"]["creates a tree window for a markdown buffer"] = function()
   MiniTest.expect.equality(state.is_body(body), true)
   local tree_buf = state.get_tree(body)
   MiniTest.expect.equality(vim.api.nvim_buf_is_valid(tree_buf), true)
+end
+
+T["init"]["creates a tree window for an asciidoc buffer"] = function()
+  local voom = require("voom")
+  local state = require("voom.state")
+
+  local body = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_buf_set_name(body, "init_test.adoc")
+  vim.api.nvim_buf_set_lines(body, 0, -1, false, { "= Hello", "== World" })
+
+  vim.api.nvim_set_current_buf(body)
+  vim.bo[body].filetype = "asciidoc"
+  voom.init("asciidoc")
+
+  MiniTest.expect.equality(state.is_body(body), true)
+  local tree_buf = state.get_tree(body)
+  MiniTest.expect.equality(vim.api.nvim_buf_is_valid(tree_buf), true)
+end
+
+T["init"]["detects asciidoc mode from filetype"] = function()
+  local voom = require("voom")
+  local state = require("voom.state")
+
+  local body = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_buf_set_name(body, "ft_detect.adoc")
+  vim.api.nvim_buf_set_lines(body, 0, -1, false, { "= Title" })
+
+  vim.api.nvim_set_current_buf(body)
+  vim.bo[body].filetype = "asciidoc"
+  voom.init()
+
+  MiniTest.expect.equality(state.is_body(body), true)
+  MiniTest.expect.equality(state.get_mode(body), "asciidoc")
+end
+
+T["init"]["detects asciidoctor filetype as asciidoc mode"] = function()
+  local voom = require("voom")
+  local state = require("voom.state")
+
+  local body = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_buf_set_name(body, "ft_asciidoctor.adoc")
+  vim.api.nvim_buf_set_lines(body, 0, -1, false, { "= Title" })
+
+  vim.api.nvim_set_current_buf(body)
+  vim.bo[body].filetype = "asciidoctor"
+  voom.init()
+
+  MiniTest.expect.equality(state.is_body(body), true)
+  MiniTest.expect.equality(state.get_mode(body), "asciidoc")
 end
 
 T["toggle"] = MiniTest.new_set()
