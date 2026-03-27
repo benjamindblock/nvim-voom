@@ -184,6 +184,13 @@ Currently supported:
     Styles:  ATX headings (`#` through `######`, levels 1-6)
              Setext underline headings (`===` / `---`, levels 1-2)
 
+  asciidoc~
+    Trigger: `.adoc` files (filetype "asciidoc" or "asciidoctor"),
+             or `:Voom asciidoc`
+    Styles:  Section titles (`=` through `======`, levels 1-6)
+    Notes:   Headings preceded by `[discrete]` are non-structural and
+             excluded from the outline.
+
 ==============================================================================
 TREE PANE                                                  *voom-tree-pane*
 
