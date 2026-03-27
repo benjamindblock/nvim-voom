@@ -1,0 +1,47 @@
+= Project Overview
+
+This is the introduction paragraph. It explains the project purpose and goals.
+Not every line of text is a heading; this paragraph should be ignored by the parser.
+
+== Getting Started
+
+Steps to set up the project on your system.
+
+=== Prerequisites
+
+- Ruby 2.7+
+- Asciidoctor gem
+- git
+
+=== Installation Steps
+
+Follow these steps to install:
+
+. Clone the repository
+. Run the setup script
+
+== Configuration
+
+How to configure the project for your environment.
+
+=== Basic Settings
+
+The most common options you will want to change.
+
+=== Advanced Settings
+
+Options for power users and custom deployments.
+
+== API Reference
+
+Comprehensive documentation of the public interface.
+
+[discrete]
+== Non-structural Heading
+
+This heading has the [discrete] attribute and should be excluded from the
+outline parser. It is decorative, not a real section boundary.
+
+====== Deep Section
+
+A level-six heading to exercise the maximum depth the parser supports.
