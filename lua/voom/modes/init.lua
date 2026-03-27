@@ -10,6 +10,9 @@ M.modes = {
   markdown = function()
     return require("voom.modes.markdown")
   end,
+  asciidoc = function()
+    return require("voom.modes.asciidoc")
+  end,
 }
 
 -- Return the module for the named mode, or nil if unrecognized.

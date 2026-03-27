@@ -75,6 +75,9 @@ local function detect_mode(args)
   if ft == "md" then
     return "markdown"
   end
+  if ft == "asciidoctor" then
+    return "asciidoc"
+  end
   return ft
 end
 
