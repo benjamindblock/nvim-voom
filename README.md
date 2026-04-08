@@ -6,10 +6,6 @@ two-pane outliner for Neovim: a read-only tree buffer on the left mirrors the
 heading structure of the current buffer, enabling fast navigation and
 reorganization of structured documents.
 
-> **Status:** This is an in-progress Lua rewrite. The original Python-based
-> plugin is included as a git submodule at `legacy/`
-> ([vim-voom/VOoM](https://github.com/vim-voom/VOoM)) for reference.
-
 ## Installation
 
 Using [lazy.nvim](https://github.com/folke/lazy.nvim):
