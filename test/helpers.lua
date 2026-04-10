@@ -177,28 +177,6 @@ function H.simple_doc()
   }
 end
 
---- Build the canonical simple AsciiDoc document used across AsciiDoc tests.
---- 4 headings: L1 "Heading One", L2 "Sub A", L2 "Sub B", L1 "Heading Two".
-function H.simple_adoc()
-  return {
-    "= Heading One",
-    "",
-    "Content under one.",
-    "",
-    "== Sub A",
-    "",
-    "Content under Sub A.",
-    "",
-    "== Sub B",
-    "",
-    "Content under Sub B.",
-    "",
-    "= Heading Two",
-    "",
-    "Content under two.",
-  }
-end
-
 -- ==============================================================================
 -- Tree/body setup (high-level)
 -- ==============================================================================

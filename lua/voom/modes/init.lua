@@ -12,9 +12,6 @@ M.modes = {
     -- module in-tree for golden-master comparisons and implementation reference.
     return require("voom.ts").build_mode("markdown")
   end,
-  asciidoc = function()
-    return require("voom.modes.asciidoc")
-  end,
 }
 
 -- Return the module for the named mode, or nil if unrecognized.

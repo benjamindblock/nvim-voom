@@ -108,10 +108,12 @@ vim.api.nvim_create_autocmd("FileType", {
 | Mode       | Trigger                         | Heading styles supported              |
 |------------|---------------------------------|---------------------------------------|
 | `markdown` | `.md` files or `:Voom markdown` | ATX headings (`#` through `######`, levels 1-6) and setext underline headings (`===` / `---`, levels 1-2) |
-| `asciidoc` | `.adoc` files or `:Voom asciidoc` | Section titles (`=` through `======`, levels 1-6); `[discrete]` headings are excluded |
 
 The mode is detected automatically from the buffer's filetype. Pass an explicit
 mode name to `:Voom` or `:VoomToggle` to override.
+
+AsciiDoc support is temporarily removed while the Treesitter migration focuses
+on Markdown first. It will return in a later pass.
 
 ## Tree pane
 
