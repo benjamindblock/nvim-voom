@@ -8,7 +8,9 @@ local M = {}
 -- implementation (git submodule at legacy/autoload/voom/voom_vimplugin2657/).
 M.modes = {
   markdown = function()
-    return require("voom.modes.markdown")
+    -- Markdown now goes through the shared Treesitter engine; keep the legacy
+    -- module in-tree for golden-master comparisons and implementation reference.
+    return require("voom.ts").build_mode("markdown")
   end,
   asciidoc = function()
     return require("voom.modes.asciidoc")
