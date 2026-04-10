@@ -157,6 +157,7 @@ document always reflects current progress.
 Status markers:
 - `[done]` work item completed and committed
 - `[next]` next work item to execute
+- `[blocked]` cannot proceed safely in the current environment
 - `[todo]` not started yet
 
 ---
@@ -473,7 +474,11 @@ body lines without format-aware mutations). `insert`, `promote`, `demote`,
 and `paste` are disabled (they require generating or rewriting language
 constructs).
 
-#### WI-10 [next]: Python query definition
+#### WI-10 [blocked]: Python query definition
+
+Blocked in the current environment because Neovim cannot create a Python
+Treesitter parser (`vim.treesitter.get_parser(..., "python")` fails), so the
+query and its tests cannot be validated locally.
 
 **File:** `lua/voom/ts/queries/python.lua`
 
