@@ -231,6 +231,31 @@ local function resolve_mode(body_buf)
   return modes.get(mode_name), state.get_outline_state(body_buf)
 end
 
+-- Guard mutating operations that are not supported by the current mode.
+--
+-- Code-oriented Treesitter modes expose a `capabilities` table instead of
+-- implementing insert/promote/demote/paste semantics they cannot guarantee to
+-- rewrite safely. Move/cut/sort stay available because they only rearrange
+-- existing body lines.
+local function ensure_capability(body_buf, capability)
+  local mode_name = state.get_mode(body_buf)
+  if not mode_name then
+    return true
+  end
+
+  local mode = modes.get(mode_name)
+  if not mode or not mode.capabilities or mode.capabilities[capability] ~= false then
+    return true
+  end
+
+  vim.api.nvim_echo(
+    { { "VOoM: " .. capability .. " is not supported for " .. mode_name .. " mode", "WarningMsg" } },
+    true,
+    {}
+  )
+  return false
+end
+
 -- Set the selected tree line and move the tree-window cursor to match.
 --
 -- This is the shared Phase 5 primitive: after a structural edit and refresh,
@@ -481,6 +506,9 @@ function M.insert_node(tree_buf, as_child)
   if not ctx then
     return
   end
+  if not ensure_capability(ctx.body_buf, "insert") then
+    return
+  end
   local mode, outline_state = resolve_mode(ctx.body_buf)
   if not mode or not outline_state then
     return
@@ -609,6 +637,9 @@ function M.cut_node(tree_buf)
   if not ctx then
     return
   end
+  if not ensure_capability(ctx.body_buf, "cut") then
+    return
+  end
   local mode, outline_state = resolve_mode(ctx.body_buf)
   if not mode then
     return
@@ -679,13 +710,15 @@ end
 
 -- Paste the clipboard content after the current node.
 function M.paste_node(tree_buf)
-  if not clipboard.body_lines or #clipboard.body_lines == 0 then
-    vim.api.nvim_echo({ { "VOoM (paste): clipboard is empty", "WarningMsg" } }, true, {})
-    return
-  end
-
   local ctx = resolve_tree_ctx(tree_buf)
   if not ctx then
+    return
+  end
+  if not ensure_capability(ctx.body_buf, "paste") then
+    return
+  end
+  if not clipboard.body_lines or #clipboard.body_lines == 0 then
+    vim.api.nvim_echo({ { "VOoM (paste): clipboard is empty", "WarningMsg" } }, true, {})
     return
   end
   local mode, outline_state = resolve_mode(ctx.body_buf)
@@ -835,6 +868,9 @@ function M.move_up(tree_buf)
   if not ctx then
     return
   end
+  if not ensure_capability(ctx.body_buf, "move") then
+    return
+  end
   local mode, outline_state = resolve_mode(ctx.body_buf)
 
   local tlnum = ctx.tlnum
@@ -938,6 +974,9 @@ end
 function M.move_down(tree_buf)
   local ctx = resolve_tree_ctx(tree_buf)
   if not ctx then
+    return
+  end
+  if not ensure_capability(ctx.body_buf, "move") then
     return
   end
   local mode, outline_state = resolve_mode(ctx.body_buf)
@@ -1053,6 +1092,9 @@ function M.promote(tree_buf)
   if not ctx then
     return
   end
+  if not ensure_capability(ctx.body_buf, "promote") then
+    return
+  end
   local mode, outline_state = resolve_mode(ctx.body_buf)
 
   local tlnum = ctx.tlnum
@@ -1113,6 +1155,9 @@ end
 function M.demote(tree_buf)
   local ctx = resolve_tree_ctx(tree_buf)
   if not ctx then
+    return
+  end
+  if not ensure_capability(ctx.body_buf, "demote") then
     return
   end
   local mode, outline_state = resolve_mode(ctx.body_buf)
@@ -1201,6 +1246,9 @@ function M.sort(body_buf, args_string)
     body_buf = state.get_body(body_buf)
   end
   if not state.is_body(body_buf) then
+    return
+  end
+  if not ensure_capability(body_buf, "sort") then
     return
   end
   local outline = state.get_outline(body_buf)

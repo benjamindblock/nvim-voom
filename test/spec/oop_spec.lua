@@ -2,6 +2,24 @@ local H = dofile("test/helpers.lua")
 
 local T = MiniTest.new_set()
 
+local function with_temp_mode(name, mode, fn)
+  local registry = require("voom.modes").modes
+  local previous = registry[name]
+
+  registry[name] = function()
+    return mode
+  end
+
+  local ok, err = pcall(fn)
+  registry[name] = previous
+  if previous == nil then
+    registry[name] = nil
+  end
+  if not ok then
+    error(err)
+  end
+end
+
 -- ==============================================================================
 -- Module loading
 -- ==============================================================================
@@ -119,6 +137,189 @@ T["clipboard"]["initially empty"] = function()
   local cb = oop.get_clipboard()
   MiniTest.expect.equality(cb.body_lines, nil)
   MiniTest.expect.equality(cb.levels, nil)
+end
+
+-- ==============================================================================
+-- capability guards
+-- ==============================================================================
+
+T["capabilities"] = MiniTest.new_set({
+  hooks = {
+    pre_case = function()
+      require("voom.oop").clear_clipboard()
+    end,
+    post_case = H.cleanup_registered_bodies,
+  },
+})
+
+local function make_code_mode(overrides)
+  local mode = vim.deepcopy(require("voom.ts").build_mode("markdown"))
+  mode.capabilities = vim.tbl_deep_extend("force", {}, require("voom.ts.templates.code").capabilities, overrides or {})
+  return mode
+end
+
+local function assert_capability_warning(op_name, fn)
+  local echoes = H.with_captured_echo(fn)
+  MiniTest.expect.equality(#echoes, 1)
+  MiniTest.expect.equality(
+    echoes[1].chunks[1][1],
+    "VOoM: " .. op_name .. " is not supported for test_code mode"
+  )
+  MiniTest.expect.equality(echoes[1].chunks[1][2], "WarningMsg")
+end
+
+T["capabilities"]["insert guard blocks insert_node"] = function()
+  local oop = require("voom.oop")
+  local tree_mod = require("voom.tree")
+
+  with_temp_mode("test_code", make_code_mode(), function()
+    local buf = H.make_scratch_buf(H.simple_doc(), "cap_insert.md")
+    vim.api.nvim_set_current_buf(buf)
+    local tree_buf = tree_mod.create(buf, "test_code")
+    local tree_win = H.find_win_for_buf(tree_buf)
+    local before = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+
+    vim.api.nvim_set_current_win(tree_win)
+    vim.api.nvim_win_set_cursor(tree_win, { 2, 0 })
+
+    assert_capability_warning("insert", function()
+      oop.insert_node(tree_buf, false)
+    end)
+
+    MiniTest.expect.equality(vim.api.nvim_buf_get_lines(buf, 0, -1, false), before)
+  end)
+end
+
+T["capabilities"]["promote guard blocks promote"] = function()
+  local oop = require("voom.oop")
+  local tree_mod = require("voom.tree")
+
+  with_temp_mode("test_code", make_code_mode(), function()
+    local buf = H.make_scratch_buf(H.simple_doc(), "cap_promote.md")
+    vim.api.nvim_set_current_buf(buf)
+    local tree_buf = tree_mod.create(buf, "test_code")
+    local tree_win = H.find_win_for_buf(tree_buf)
+    local before = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+
+    vim.api.nvim_set_current_win(tree_win)
+    vim.api.nvim_win_set_cursor(tree_win, { 2, 0 })
+
+    assert_capability_warning("promote", function()
+      oop.promote(tree_buf)
+    end)
+
+    MiniTest.expect.equality(vim.api.nvim_buf_get_lines(buf, 0, -1, false), before)
+  end)
+end
+
+T["capabilities"]["demote guard blocks demote"] = function()
+  local oop = require("voom.oop")
+  local tree_mod = require("voom.tree")
+
+  with_temp_mode("test_code", make_code_mode(), function()
+    local buf = H.make_scratch_buf(H.simple_doc(), "cap_demote.md")
+    vim.api.nvim_set_current_buf(buf)
+    local tree_buf = tree_mod.create(buf, "test_code")
+    local tree_win = H.find_win_for_buf(tree_buf)
+    local before = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+
+    vim.api.nvim_set_current_win(tree_win)
+    vim.api.nvim_win_set_cursor(tree_win, { 1, 0 })
+
+    assert_capability_warning("demote", function()
+      oop.demote(tree_buf)
+    end)
+
+    MiniTest.expect.equality(vim.api.nvim_buf_get_lines(buf, 0, -1, false), before)
+  end)
+end
+
+T["capabilities"]["paste guard wins before clipboard validation"] = function()
+  local oop = require("voom.oop")
+  local tree_mod = require("voom.tree")
+
+  with_temp_mode("test_code", make_code_mode(), function()
+    local buf = H.make_scratch_buf(H.simple_doc(), "cap_paste.md")
+    vim.api.nvim_set_current_buf(buf)
+    local tree_buf = tree_mod.create(buf, "test_code")
+    local tree_win = H.find_win_for_buf(tree_buf)
+    local before = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+
+    vim.api.nvim_set_current_win(tree_win)
+    vim.api.nvim_win_set_cursor(tree_win, { 1, 0 })
+
+    assert_capability_warning("paste", function()
+      oop.paste_node(tree_buf)
+    end)
+
+    MiniTest.expect.equality(vim.api.nvim_buf_get_lines(buf, 0, -1, false), before)
+  end)
+end
+
+T["capabilities"]["move guard blocks move_up"] = function()
+  local oop = require("voom.oop")
+  local tree_mod = require("voom.tree")
+
+  with_temp_mode("test_code", make_code_mode({ move = false }), function()
+    local buf = H.make_scratch_buf(H.simple_doc(), "cap_move.md")
+    vim.api.nvim_set_current_buf(buf)
+    local tree_buf = tree_mod.create(buf, "test_code")
+    local tree_win = H.find_win_for_buf(tree_buf)
+    local before = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+
+    vim.api.nvim_set_current_win(tree_win)
+    vim.api.nvim_win_set_cursor(tree_win, { 3, 0 })
+
+    assert_capability_warning("move", function()
+      oop.move_up(tree_buf)
+    end)
+
+    MiniTest.expect.equality(vim.api.nvim_buf_get_lines(buf, 0, -1, false), before)
+  end)
+end
+
+T["capabilities"]["cut guard blocks cut_node"] = function()
+  local oop = require("voom.oop")
+  local tree_mod = require("voom.tree")
+
+  with_temp_mode("test_code", make_code_mode({ cut = false, move = true }), function()
+    local buf = H.make_scratch_buf(H.simple_doc(), "cap_cut.md")
+    vim.api.nvim_set_current_buf(buf)
+    local tree_buf = tree_mod.create(buf, "test_code")
+    local tree_win = H.find_win_for_buf(tree_buf)
+    local before = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+
+    vim.api.nvim_set_current_win(tree_win)
+    vim.api.nvim_win_set_cursor(tree_win, { 2, 0 })
+
+    assert_capability_warning("cut", function()
+      oop.cut_node(tree_buf)
+    end)
+
+    MiniTest.expect.equality(vim.api.nvim_buf_get_lines(buf, 0, -1, false), before)
+  end)
+end
+
+T["capabilities"]["sort guard blocks sort"] = function()
+  local oop = require("voom.oop")
+  local tree_mod = require("voom.tree")
+
+  with_temp_mode("test_code", make_code_mode({ sort = false, move = true, cut = true }), function()
+    local buf = H.make_scratch_buf(H.simple_doc(), "cap_sort.md")
+    vim.api.nvim_set_current_buf(buf)
+    local tree_buf = tree_mod.create(buf, "test_code")
+    local before = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+    local tree_win = H.find_win_for_buf(tree_buf)
+
+    vim.api.nvim_set_current_win(tree_win)
+    vim.api.nvim_win_set_cursor(tree_win, { 2, 0 })
+
+    assert_capability_warning("sort", function()
+      oop.sort(buf, "")
+    end)
+
+    MiniTest.expect.equality(vim.api.nvim_buf_get_lines(buf, 0, -1, false), before)
+  end)
 end
 
 -- ==============================================================================

@@ -405,7 +405,11 @@ Tasks:
 
 ### Phase 4: Programming language modes
 
-#### WI-8 [next]: Create the shared code template (`lua/voom/ts/templates/code.lua`)
+#### WI-8 [done]: Create the shared code template (`lua/voom/ts/templates/code.lua`)
+
+Completed in the earlier Treesitter engine work:
+- added `lua/voom/ts/templates/code.lua`
+- defined the no-op editing hooks and capability matrix for code modes
 
 **File:** `lua/voom/ts/templates/code.lua`
 
@@ -425,7 +429,13 @@ return {
 }
 ```
 
-#### WI-9 [todo]: Add capability checks to `oop.lua`
+#### WI-9 [done]: Add capability checks to `oop.lua`
+
+Completed:
+- added shared capability guards for insert, promote, demote, paste, move,
+  cut, and sort in `lua/voom/oop.lua`
+- added OOP specs that verify unsupported operations warn and leave the body
+  unchanged for code-style modes
 
 **File:** `lua/voom/oop.lua`
 
@@ -463,7 +473,7 @@ body lines without format-aware mutations). `insert`, `promote`, `demote`,
 and `paste` are disabled (they require generating or rewriting language
 constructs).
 
-#### WI-10 [todo]: Python query definition
+#### WI-10 [next]: Python query definition
 
 **File:** `lua/voom/ts/queries/python.lua`
 
