@@ -1,17 +1,21 @@
--- Mode registry. Each markup mode is a Lua module under lua/voom/modes/
--- that implements the mode-specific heading detection and manipulation logic.
---
+-- Mode registry. Maps mode names to lazy-loaded Treesitter-backed mode
+-- modules.  Adding a new language only requires a query file under
+-- lua/voom/ts/queries/ — the build_mode factory assembles the rest.
+
 local M = {}
 
 -- Map of mode name -> loader function (lazy-loaded on first use).
--- Each entry is added as its mode module is ported from the upstream Python
--- implementation (git submodule at legacy/autoload/voom/voom_vimplugin2657/).
 M.modes = {
-  markdown = function()
-    -- Markdown now goes through the shared Treesitter engine; keep the legacy
-    -- module in-tree for golden-master comparisons and implementation reference.
-    return require("voom.ts").build_mode("markdown")
-  end,
+  markdown   = function() return require("voom.ts").build_mode("markdown") end,
+  python     = function() return require("voom.ts").build_mode("python") end,
+  lua        = function() return require("voom.ts").build_mode("lua") end,
+  ruby       = function() return require("voom.ts").build_mode("ruby") end,
+  go         = function() return require("voom.ts").build_mode("go") end,
+  javascript = function() return require("voom.ts").build_mode("javascript") end,
+  typescript = function() return require("voom.ts").build_mode("typescript") end,
+  tsx        = function() return require("voom.ts").build_mode("tsx") end,
+  bash       = function() return require("voom.ts").build_mode("bash") end,
+  html       = function() return require("voom.ts").build_mode("html") end,
 }
 
 -- Return the module for the named mode, or nil if unrecognized.

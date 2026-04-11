@@ -67,15 +67,20 @@ end
 -- Resolve the markup mode name from the command argument or the current
 -- buffer's filetype.  The "md" filetype alias is normalised to "markdown"
 -- so that both :Voom and :Voom markdown work on .md files.
+-- Neovim filetypes that don't match our mode names verbatim.
+local FILETYPE_ALIASES = {
+  md                = "markdown",
+  sh                = "bash",
+  javascriptreact   = "javascript",
+  typescriptreact   = "tsx",
+}
+
 local function detect_mode(args)
   if args and args ~= "" then
     return args
   end
   local ft = vim.bo.filetype
-  if ft == "md" then
-    return "markdown"
-  end
-  return ft
+  return FILETYPE_ALIASES[ft] or ft
 end
 
 -- Resolve the body buffer from the current context.
