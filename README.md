@@ -103,17 +103,24 @@ vim.api.nvim_create_autocmd("FileType", {
 })
 ```
 
-## Supported markup modes
+## Supported modes
 
-| Mode       | Trigger                         | Heading styles supported              |
-|------------|---------------------------------|---------------------------------------|
-| `markdown` | `.md` files or `:Voom markdown` | ATX headings (`#` through `######`, levels 1-6) and setext underline headings (`===` / `---`, levels 1-2) |
+All modes use Treesitter for parsing. The mode is detected automatically from
+the buffer's filetype. Pass an explicit mode name to `:Voom` or `:VoomToggle`
+to override.
 
-The mode is detected automatically from the buffer's filetype. Pass an explicit
-mode name to `:Voom` or `:VoomToggle` to override.
-
-AsciiDoc support is temporarily removed while the Treesitter migration focuses
-on Markdown first. It will return in a later pass.
+| Mode         | Trigger filetypes              | Outline nodes                                                             |
+|--------------|--------------------------------|---------------------------------------------------------------------------|
+| `markdown`   | `md`, `markdown`               | ATX headings (`#`–`######`, levels 1–6) and setext underlines (`===`/`---`, levels 1–2) |
+| `python`     | `python`                       | Classes, functions, methods                                               |
+| `lua`        | `lua`                          | Functions, local functions, methods                                       |
+| `ruby`       | `ruby`                         | Modules, classes, methods                                                 |
+| `go`         | `go`                           | Type declarations, functions, methods                                     |
+| `javascript` | `javascript`, `javascriptreact`| Functions, classes, methods, arrow functions                              |
+| `typescript` | `typescript`                   | Functions, classes, methods, interfaces, type aliases                     |
+| `tsx`        | `tsx`, `typescriptreact`       | Functions, classes, methods, interfaces, type aliases                     |
+| `bash`       | `sh`, `bash`                   | Functions                                                                 |
+| `html`       | `html`                         | Heading elements (`<h1>`–`<h6>`)                                          |
 
 ## Tree pane
 
