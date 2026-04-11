@@ -1537,7 +1537,7 @@ T["outline_state"] = MiniTest.new_set()
 
 T["outline_state"]["stored on register"] = function()
   local state = require("voom.state")
-  local markdown = require("voom.modes.markdown")
+  local markdown = require("voom.ts").build_mode("markdown")
 
   local lines = H.simple_doc()
   local outline = markdown.make_outline(lines, "test.md")
@@ -1559,7 +1559,7 @@ end
 
 T["outline_state"]["updated on set_outline"] = function()
   local state = require("voom.state")
-  local markdown = require("voom.modes.markdown")
+  local markdown = require("voom.ts").build_mode("markdown")
 
   local lines = H.simple_doc()
   local outline = markdown.make_outline(lines, "test.md")
