@@ -38,6 +38,13 @@ omitting `setup()` entirely leaves all defaults in effect.
         -- Default markup mode when none can be auto-detected from 'filetype'.
         default_mode = "markdown",
 
+        -- Automatically open the tree pane for matching filetypes.
+        auto_open  = false,         -- false | true | { "markdown", ... }
+
+        -- Automatically close the tree pane when the body buffer leaves
+        -- its window (e.g. `:q` on the body, fzf replacing the buffer).
+        auto_close = false,         -- false | true | { "markdown", ... }
+
         -- Whether moving the cursor in the tree scrolls the body window
         -- to the corresponding heading without moving focus.
         cursor_follow = true,
@@ -86,6 +93,33 @@ default_mode ~                                         *voom-opt-default_mode*
     Type:    string
     Default: "markdown"
     Markup mode used when none can be auto-detected from 'filetype'.
+
+auto_open ~                                               *voom-opt-auto_open*
+    Type:    boolean | string[]
+    Default: false
+    Automatically open the tree pane whenever a buffer's 'filetype' matches
+    a registered voom mode (see |voom-modes|).  Triggered by |BufWinEnter|,
+    so it fires on first load, on |:edit| of an already-loaded buffer, on
+    hidden-buffer re-display, and when netrw returns to a file after the
+    tree was auto-closed.
+      • `false` — never auto-open (default).
+      • `true`  — auto-open for every supported filetype.
+      • table   — auto-open only for the listed mode names, e.g.
+                  `{ "markdown" }` or `{ "markdown", "python" }`.
+    Filetypes that don't resolve to a registered mode are silently ignored,
+    so e.g. YAML buffers under `auto_open = true` are a no-op.
+
+auto_close ~                                             *voom-opt-auto_close*
+    Type:    boolean | string[]
+    Default: false
+    Automatically close the tree pane when the body buffer leaves its
+    window.  Triggered by |BufWinLeave|, so the following scenarios all
+    dismiss the tree: `:q` on the body, fzf replacing the buffer with its
+    target file, and netrw replacing the buffer with a directory listing.
+      • `false` — never auto-close (default).
+      • `true`  — auto-close for every registered mode.
+      • table   — auto-close only for the listed mode names.
+    See also |voom.close()|, the underlying API.
 
 cursor_follow ~                                       *voom-opt-cursor_follow*
     Type:    boolean
@@ -169,6 +203,37 @@ COMMANDS                                                    *voom-commands*
 
 Both |:Voom| and |:VoomToggle| support command-line completion for mode
 names.
+
+==============================================================================
+LUA API                                                        *voom-api*
+
+The public Lua surface is exposed by `require("voom")`.  Prefer these
+functions over reaching into the internal `voom.tree` / `voom.state`
+modules from autocommands or external plugins — those internals are not
+stability guarantees.
+
+                                                               *voom.setup()*
+require("voom").setup({opts})
+    Merge {opts} over the default configuration (see |voom-config|).
+    Calling `setup()` is optional; defaults apply when it is not called.
+
+                                                               *voom.init()*
+require("voom").init([mode])
+    Open (or focus) the tree pane for the current buffer.  Equivalent to
+    the |:Voom| command.  [mode] is an optional mode name; when omitted,
+    the mode is auto-detected from 'filetype'.
+
+                                                              *voom.toggle()*
+require("voom").toggle([mode])
+    Toggle the tree pane open/closed.  Equivalent to |:VoomToggle|.
+
+                                                              *voom.close()*
+require("voom").close([body_buf])
+    Close the tree pane associated with {body_buf} (defaults to the body
+    buffer resolved from the current window).  No-op if the buffer has no
+    active tree.  This is the stable counterpart to `voom.init()` /
+    `voom.toggle()` and is the API used internally by the |voom-opt-auto_close|
+    autocommand.
 
 ==============================================================================
 MARKUP MODES                                                  *voom-modes*

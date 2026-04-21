@@ -8,12 +8,21 @@ M.defaults = {
   default_mode = "markdown",
   -- Which side of the editor the tree pane opens on: "left" or "right".
   tree_position = "left",
-  -- Automatically open the tree pane for matching filetypes on BufEnter.
+  -- Automatically open the tree pane for matching filetypes whenever the
+  -- body buffer is displayed in a window (on BufWinEnter — covers first
+  -- load, :edit of an already-loaded buffer, hidden-buffer re-display, and
+  -- netrw selection round-trips).
   -- false  → never auto-open
   -- true   → auto-open for all supported modes
   -- table  → auto-open only for the listed mode names, e.g. {"markdown"}
-  -- TODO: wire auto_open in setup() once the autocommand plumbing is in place.
   auto_open = false,
+  -- Automatically close the tree pane when the body buffer leaves its
+  -- window (e.g. `:q` on the body, fzf replacing the buffer, netrw
+  -- replacing the buffer with a directory listing).
+  -- false  → never auto-close
+  -- true   → auto-close for all supported modes
+  -- table  → auto-close only for the listed mode names, e.g. {"markdown"}
+  auto_close = false,
   -- Whether moving the cursor in the tree automatically scrolls the body
   -- window to the corresponding heading without moving focus.
   cursor_follow = true,

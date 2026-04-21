@@ -65,22 +65,17 @@ end
 -- ==============================================================================
 
 -- Resolve the markup mode name from the command argument or the current
--- buffer's filetype.  The "md" filetype alias is normalised to "markdown"
--- so that both :Voom and :Voom markdown work on .md files.
--- Neovim filetypes that don't match our mode names verbatim.
-local FILETYPE_ALIASES = {
-  md                = "markdown",
-  sh                = "bash",
-  javascriptreact   = "javascript",
-  typescriptreact   = "tsx",
-}
-
+-- buffer's filetype.  Delegates filetype→mode resolution to
+-- voom.modes.resolve_filetype so aliases (e.g. "md" → "markdown") live
+-- alongside the mode registry.  Falls back to the raw &filetype value when
+-- the filetype isn't registered so init() can emit its "unsupported mode"
+-- notification with the name the user actually saw.
 local function detect_mode(args)
   if args and args ~= "" then
     return args
   end
   local ft = vim.bo.filetype
-  return FILETYPE_ALIASES[ft] or ft
+  return require("voom.modes").resolve_filetype(ft) or ft
 end
 
 -- Resolve the body buffer from the current context.
@@ -166,6 +161,28 @@ function M.toggle(args)
     tree.close(body_buf)
   else
     M.init(args)
+  end
+end
+
+-- Close the nvim-voom tree for `body_buf` (defaults to the current buffer's
+-- associated body).  No-op if the buffer has no active tree.
+--
+-- Stable public counterpart to M.init / M.toggle — prefer this over reaching
+-- into voom.tree.close from external code (autocommands, user rcfiles, etc.).
+--
+-- @param body_buf  number?  body buffer number; defaults to the current
+--                           buffer's associated body via resolve_body_buf().
+function M.close(body_buf)
+  local state = require("voom.state")
+  local tree = require("voom.tree")
+
+  body_buf = body_buf or resolve_body_buf()
+  if not body_buf then
+    return
+  end
+
+  if state.get_tree(body_buf) then
+    tree.close(body_buf)
   end
 end
 

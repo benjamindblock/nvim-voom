@@ -36,6 +36,8 @@ require("voom").setup({
   tree_width    = 40,         -- width of the tree pane in columns
   tree_position = "left",     -- "left" or "right"
   default_mode  = "markdown", -- markup mode used when none can be auto-detected
+  auto_open     = false,      -- auto-open tree for matching filetypes (see below)
+  auto_close    = false,      -- auto-close tree when body leaves its window
   cursor_follow = true,       -- scroll body to heading when tree cursor moves
   fold_indicators = {
     enabled = true,
@@ -65,6 +67,8 @@ works without any explicit configuration.
 | `tree_width` | `number` | `40` | Width of the tree pane in columns. |
 | `tree_position` | `"left"\|"right"` | `"left"` | Which side the tree pane opens on. |
 | `default_mode` | `string` | `"markdown"` | Markup mode used when none can be auto-detected from `filetype`. |
+| `auto_open` | `boolean \| string[]` | `false` | Automatically open the tree pane on `FileType`. `true` enables it for every registered mode; a table (e.g. `{ "markdown" }`) restricts it to the listed modes. |
+| `auto_close` | `boolean \| string[]` | `false` | Automatically close the tree pane when the body buffer leaves its window (`:q` on the body, fzf replacing the buffer, netrw replacing it with a directory listing). Same shape as `auto_open`. |
 | `cursor_follow` | `boolean` | `true` | Whether moving the cursor in the tree automatically scrolls the body to the corresponding heading. |
 | `fold_indicators.enabled` | `boolean` | `true` | Show virtual-text fold-state icons (`▼`/`▶`/`·`) next to each tree node. |
 | `fold_indicators.icons` | `table` | `{ open="▼", closed="▶", leaf="·" }` | Characters used for fold indicators. |
@@ -88,18 +92,44 @@ works without any explicit configuration.
 
 `:Voom` and `:VoomToggle` support command-line completion for mode names.
 
-### Auto-open for specific filetypes
+### Auto-open and auto-close
 
-To have the outline tree open automatically whenever you edit a particular
-filetype, add a `FileType` autocommand. For example, to activate it for
-Markdown files:
+`auto_open` opens the tree pane whenever a buffer's filetype matches a
+registered voom mode, and `auto_close` closes it when the body buffer leaves
+its window (e.g. `:q` on the body, fzf replacing the buffer, netrw swapping
+it for a directory listing). Both default to `false`.
+
+Both flags are driven by Neovim's window-display lifecycle (`BufWinEnter`
+and `BufWinLeave`), so they correctly handle netrw round-trips: the tree
+closes when you press `-` to pop up to a directory listing and reopens
+when you reselect the same file.
+
+Enable globally:
 
 ```lua
-vim.api.nvim_create_autocmd("FileType", {
-  pattern  = "markdown",
-  callback = function()
-    vim.cmd("Voom")
-  end,
+require("voom").setup({
+  auto_open  = true,
+  auto_close = true,
+})
+```
+
+Restrict to specific modes with the table form:
+
+```lua
+require("voom").setup({
+  auto_open  = { "markdown" },             -- only open for markdown
+  auto_close = { "markdown", "python" },   -- close for either mode
+})
+```
+
+The two flags can be shaped independently — for example, `auto_open` as a
+table and `auto_close` as `true`, so the tree opens only for a curated set
+of filetypes but always closes alongside the body:
+
+```lua
+require("voom").setup({
+  auto_open  = { "markdown" },
+  auto_close = true,
 })
 ```
 
