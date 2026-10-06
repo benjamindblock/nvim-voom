@@ -329,19 +329,18 @@ vim.api.nvim_create_autocmd("WinNew", {
     --   * `:tabnew`-style commands could have moved focus to a
     --     different tab — we only want to fix layouts in the tab
     --     where the split actually happened.
-    --   * `:split` will have transferred focus to the new window —
-    --     `nvim_get_current_win()` will no longer point at the source
-    --     pane.  We need the source identity (specifically: was it a
-    --     tree window?) for the lockdown check.
+    --   * focus may have moved again, so the previous window (`#`) may
+    --     no longer be the source pane.  We need the source identity
+    --     (was it a tree window?) for the lockdown check.
+    -- WinNew fires after `:split` has already made the new window
+    -- current, so the source pane is the previous window, not the
+    -- current one.
     local tab = vim.api.nvim_get_current_tabpage()
-    local source_win = vim.api.nvim_get_current_win()
+    local source_win = vim.fn.win_getid(vim.fn.winnr("#"))
 
     -- Defer until Neovim has finished settling the new window's
-    -- position.  At WinNew firing time the new window exists in the
-    -- layout tree but `:split`'s focus-transfer hasn't run yet, so
-    -- `nvim_get_current_win()` would return the *source* pane.  After
-    -- one event-loop tick, focus is in the new window — exactly what
-    -- we need to operate on.
+    -- position.  After one event-loop tick, focus is still in the new
+    -- window — exactly what we need to operate on.
     vim.schedule(function()
       if not vim.api.nvim_tabpage_is_valid(tab) then
         return
@@ -378,6 +377,12 @@ vim.api.nvim_create_autocmd("WinNew", {
         and vim.api.nvim_win_get_buf(source_win) == tree_buf
       if config.options.lock_tree_splits and source_was_tree then
         pcall(vim.api.nvim_win_close, new_win, true)
+        -- Neovim hands focus to the window that absorbs the freed columns.
+        -- The tree has 'winfixwidth', so that's usually the body, not the
+        -- tree the user split from.
+        if vim.api.nvim_win_is_valid(source_win) then
+          vim.api.nvim_set_current_win(source_win)
+        end
         return
       end
 
