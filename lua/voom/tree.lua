@@ -1661,13 +1661,15 @@ end
 -- Delete the tree buffer and clean up all associated state for `body_buf`.
 function M.close(body_buf)
   local tree_buf = state.get_tree(body_buf)
+  -- Unregister before deleting the tree buffer.  The delete closes the tree
+  -- window and fires BufWinLeave; if the pair were still registered,
+  -- auto_close would treat that as the tree leaving its window and `:quit`
+  -- the body window too (exiting Neovim when the body is the last window).
+  state.unregister(body_buf)
   if tree_buf and vim.api.nvim_buf_is_valid(tree_buf) then
     -- Force-delete so the buffer disappears even if displayed in a window.
     vim.api.nvim_buf_delete(tree_buf, { force = true })
   end
-  -- Unregister is also called by the BufWipeout autocmd, but calling it
-  -- here handles the case where the buffer was already wiped before close().
-  state.unregister(body_buf)
   clear_history_for_body(body_buf)
 
   -- Clean up the per-body augroup in case close() was called directly

@@ -370,6 +370,62 @@ T["auto_close"]["table form filter applies to tree direction"] = function()
   -- post_case → cleanup_registered_bodies closes the python tree.
 end
 
+-- ------------------------------------------------------------------------
+-- Explicit close: wiping the tree from :VoomToggle must not look like the
+-- tree leaving its window, or auto_close would `:quit` the body as well.
+-- ------------------------------------------------------------------------
+
+--- Run `fn` with an extra window in the tab.  If close regresses into
+--- quitting the body window, `:quit` then closes that window instead of
+--- exiting the test Neovim when the body is the last window.
+local function with_spare_window(fn)
+  local spare = vim.api.nvim_get_current_win()
+  vim.cmd("noautocmd botright split")
+  local ok, err = pcall(fn)
+  pcall(vim.api.nvim_win_close, spare, true)
+  if not ok then
+    error(err)
+  end
+end
+
+T["auto_close"]["toggle from body closes only the tree"] = function()
+  local voom = require("voom")
+
+  voom.setup({ auto_close = true })
+  with_spare_window(function()
+    local body, tree_buf = open_tree_for("sample.md", "markdown")
+    local body_win = H.find_win_for_buf(body)
+
+    with_sync_schedule(function()
+      vim.api.nvim_set_current_win(body_win)
+      voom.toggle()
+    end)
+
+    MiniTest.expect.equality(vim.api.nvim_buf_is_valid(tree_buf), false)
+    MiniTest.expect.equality(vim.api.nvim_win_is_valid(body_win), true)
+    MiniTest.expect.equality(vim.api.nvim_win_get_buf(body_win), body)
+  end)
+end
+
+T["auto_close"]["toggle from tree closes only the tree"] = function()
+  local voom = require("voom")
+
+  voom.setup({ auto_close = true })
+  with_spare_window(function()
+    local body, tree_buf = open_tree_for("sample.md", "markdown")
+    local body_win = H.find_win_for_buf(body)
+
+    with_sync_schedule(function()
+      vim.api.nvim_set_current_win(H.find_win_for_buf(tree_buf))
+      voom.toggle()
+    end)
+
+    MiniTest.expect.equality(vim.api.nvim_buf_is_valid(tree_buf), false)
+    MiniTest.expect.equality(vim.api.nvim_win_is_valid(body_win), true)
+    MiniTest.expect.equality(vim.api.nvim_win_get_buf(body_win), body)
+  end)
+end
+
 -- ==============================================================================
 -- unified_horizontal_splits autocommand
 -- ==============================================================================
